@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+state/
+logs/
+*.lib
+*.pdb
+.pytest_cache/
+proxies.txt
+proxy/*.txt
+.tools/

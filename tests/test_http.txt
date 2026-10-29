@@ -1,0 +1,232 @@
+finding this machine's direct IP...
+direct IP: 2.26.225.150
+
+FAIL #0   http://147.45.164.178:8888               140ms  -                proxy closed on CONNECT
+FAIL #1   http://5.129.254.49:8888                 296ms  -                proxy closed on CONNECT
+FAIL #2   http://193.168.48.14:3128               5000ms  -                proxy closed on CONNECT
+ok   #3   http://46.161.49.174:10808              7437ms  45.130.60.30     
+FAIL #4   http://5.129.254.51:8888                 140ms  -                proxy closed on CONNECT
+FAIL #5   http://5.129.254.129:8888                140ms  -                proxy closed on CONNECT
+FAIL #6   http://5.129.254.60:8888                 171ms  -                proxy closed on CONNECT
+FAIL #7   http://5.129.254.70:8888                 140ms  -                proxy closed on CONNECT
+FAIL #8   http://5.129.254.215:8888                140ms  -                proxy closed on CONNECT
+FAIL #9   http://5.129.254.243:8888                171ms  -                proxy closed on CONNECT
+FAIL #10  http://150.241.105.211:3128            10015ms  -                timed out
+FAIL #11  http://78.138.185.81:3128               5000ms  -                proxy closed on CONNECT
+FAIL #12  http://145.220.227.220:8118            10015ms  -                timed out
+FAIL #13  http://145.220.227.91:3128              8921ms  -                HTTP/1.1 502 Bad Gateway
+FAIL #14  http://103.119.19.218:3128               233ms  -                HTTP/1.1 503 Service Unavailable
+FAIL #15  http://35.228.49.168:9443               1421ms  -                HTTP/1.0 302 Move
+FAIL #16  http://83.171.113.43:3128               5000ms  -                proxy closed on CONNECT
+FAIL #17  http://206.223.241.13:3128               577ms  -                HTTP/1.1 403 Forbidden
+FAIL #18  http://4.227.178.164:3128              10015ms  -                timed out
+ok   #19  http://18.221.175.172:8000              3640ms  18.221.175.172   
+FAIL #20  http://93.55.126.184:8080              10015ms  -                timed out
+FAIL #21  http://209.145.53.118:8080             10015ms  -                timed out
+FAIL #22  http://86.110.236.27:8080              10015ms  -                timed out
+FAIL #23  http://56.228.13.15:18146                296ms  -                HTTP/1.1 400 Bad Request
+FAIL #24  http://38.46.214.243:1111              10015ms  -                timed out
+FAIL #25  http://103.176.96.131:8082             10015ms  -                timed out
+FAIL #26  http://103.179.253.43:8181              5671ms  -                proxy closed on CONNECT
+FAIL #27  http://103.165.155.112:2016            10015ms  -                timed out
+FAIL #28  http://1.4.141.66:80                   10015ms  -                timed out
+FAIL #29  http://149.130.173.58:9443              2077ms  -                HTTP/1.0 302 Move
+FAIL #30  http://4.144.146.21:80                   640ms  -                HTTP/1.1 403 Forbidden
+FAIL #31  http://1.4.141.40:80                   10015ms  -                timed out
+FAIL #32  http://121.101.133.96:8080             10015ms  -                timed out
+FAIL #33  http://36.50.56.17:8818                10015ms  -                timed out
+FAIL #34  http://1.20.101.24:8080                10015ms  -                timed out
+FAIL #35  http://180.180.156.111:443             10015ms  -                timed out
+ok   #36  http://213.35.111.243:8899              9421ms  213.35.111.243   
+FAIL #37  http://103.180.127.115:8080            10030ms  -                timed out
+FAIL #38  http://1.20.101.23:80                  10000ms  -                timed out
+ok   #39  http://103.158.97.82:8080               4984ms  103.158.97.82    
+FAIL #40  http://160.19.19.127:8080              10014ms  -                timed out
+FAIL #41  http://59.145.184.190:80               10030ms  -                timed out
+FAIL #42  http://181.78.80.123:999               10030ms  -                timed out
+FAIL #43  http://171.101.72.82:8080              10014ms  -                timed out
+FAIL #44  http://89.213.106.98:999               10014ms  -                timed out
+FAIL #45  http://145.220.227.230:8118            10030ms  -                timed out
+FAIL #46  http://45.194.90.194:8080               2703ms  -                proxy closed on CONNECT
+FAIL #47  http://103.156.96.131:8080             10032ms  -                timed out
+FAIL #48  http://126.209.16.171:5050             10030ms  -                timed out
+FAIL #49  http://1.10.248.249:80                 10015ms  -                timed out
+FAIL #50  http://45.194.90.225:8080               4265ms  -                proxy closed on CONNECT
+FAIL #51  http://113.161.93.6:8080               10030ms  -                timed out
+FAIL #52  http://203.150.113.105:8080            10015ms  -                timed out
+FAIL #53  http://23.175.40.63:8089               10030ms  -                timed out
+FAIL #54  http://117.0.77.231:2110                 952ms  -                proxy closed on CONNECT
+FAIL #55  http://3.231.160.150:59874              5296ms  -                HTTP/1.1 502 Bad Gateway
+FAIL #56  http://117.0.76.112:2065                2313ms  -                proxy closed on CONNECT
+FAIL #57  http://181.78.20.83:999                10000ms  -                timed out
+FAIL #58  http://43.155.62.157:443                2452ms  -                IP: 2.26.225.150
+FAIL #59  http://103.20.102.155:2924             10015ms  -                timed out
+ok   #60  http://101.36.112.205:1081              2937ms  101.36.112.205   
+FAIL #61  http://139.162.78.109:3128              1968ms  -                HTTP/1.0 429 Too Many Requests
+FAIL #62  http://43.99.60.244:8089                 561ms  -                HTTP/1.1 403 Forbidden
+FAIL #63  http://163.223.105.86:5052             10030ms  -                timed out
+ok   #64  http://213.139.210.13:1088              2063ms  213.139.210.13   
+FAIL #65  http://5.129.254.154:8888                125ms  -                proxy closed on CONNECT
+FAIL #66  http://161.22.33.80:999                10031ms  -                timed out
+FAIL #67  http://18.157.159.247:4551               295ms  -                HTTP/1.1 400 Bad Request
+FAIL #68  http://161.35.70.249:3128               1405ms  -                HTTP/1.0 429 Too Many Requests
+FAIL #69  http://103.144.54.37:8082              10016ms  -                timed out
+FAIL #70  http://103.174.122.120:8080            10014ms  -                timed out
+FAIL #71  http://200.125.170.226:999             10000ms  -                timed out
+FAIL #72  http://145.220.227.195:1081             5172ms  -                HTTP/1.1 502 Bad Gateway
+FAIL #73  http://120.232.115.57:17981              578ms  -                HTTP/1.1 403 Forbidden
+FAIL #74  http://34.229.190.39:37121               312ms  -                HTTP/1.1 400 Bad Request
+FAIL #75  http://120.232.115.170:17981             593ms  -                HTTP/1.1 403 Forbidden
+FAIL #76  http://51.17.99.135:59658                250ms  -                HTTP/1.1 400 Bad Request
+ok   #77  http://78.186.147.185:3310              2890ms  78.186.147.185   
+FAIL #78  http://5.129.254.5:8888                  109ms  -                proxy closed on CONNECT
+ok   #79  http://20.33.10.79:9443                 5610ms  20.33.10.79      
+FAIL #80  http://185.158.94.163:3128             10014ms  -                timed out
+ok   #81  http://47.107.107.24:80                 2155ms  47.107.107.24    
+ok   #82  http://102.244.78.61:8083               3467ms  102.244.78.57    
+FAIL #83  http://111.196.24.150:8888             10030ms  -                timed out
+FAIL #84  http://123.121.98.109:8888             10030ms  -                timed out
+FAIL #85  http://89.237.33.129:37647              5000ms  -                proxy closed on CONNECT
+ok   #86  http://102.244.78.61:8089               3217ms  102.244.78.57    
+FAIL #87  http://51.94.221.175:31506              5264ms  -                HTTP/1.1 502 Bad Gateway
+ok   #88  http://102.244.78.61:8084               3467ms  102.244.78.57    
+ok   #89  http://123.121.108.22:8888              2234ms  123.121.108.22   
+ok   #90  http://102.244.78.61:8088               3296ms  102.244.78.57    
+ok   #91  http://111.192.212.105:8888             4125ms  111.192.212.105  
+ok   #92  http://111.192.59.55:8888               7109ms  111.192.59.55    
+ok   #93  http://123.121.134.141:8888             5327ms  123.121.134.141  
+ok   #94  http://111.192.57.155:8888              3421ms  111.192.57.155   
+ok   #95  http://111.192.56.81:8888               2171ms  111.192.56.81    
+FAIL #96  http://111.192.23.52:8888              10014ms  -                timed out
+ok   #97  http://111.196.30.74:8888               2186ms  111.196.30.74    
+FAIL #98  http://93.118.120.60:8080              10031ms  -                timed out
+FAIL #99  http://187.108.238.122:8080            10015ms  -                timed out
+FAIL #100 http://89.43.132.226:8080              10031ms  -                timed out
+ok   #101 http://123.121.118.107:8888             2125ms  123.121.118.107  
+FAIL #102 http://123.121.122.142:8888            10015ms  -                timed out
+FAIL #103 http://157.15.211.48:8080              10015ms  -                timed out
+FAIL #104 http://103.114.52.78:8080              10030ms  -                timed out
+ok   #105 http://182.253.121.125:8080            10264ms  182.253.121.125  
+ok   #106 http://123.119.192.164:8888             2172ms  123.119.192.164  
+ok   #107 http://123.121.132.234:8888             2125ms  123.121.132.234  
+FAIL #108 http://120.76.101.238:8080             10014ms  -                timed out
+FAIL #109 http://103.210.119.155:1080            10000ms  -                timed out
+ok   #110 http://114.245.153.111:8888             2171ms  114.245.153.111  
+FAIL #111 http://123.57.0.163:8888                 625ms  -                HTTP/1.1 403 Forbidden
+FAIL #112 http://163.223.118.106:8085            10032ms  -                timed out
+ok   #113 http://221.221.154.253:8888             2750ms  221.221.154.253  
+FAIL #114 http://145.220.227.87:8080              4265ms  -                HTTP/1.1 502 Bad Gateway
+FAIL #115 http://61.149.133.242:8888             10014ms  -                timed out
+ok   #116 http://89.167.124.218:8888              1765ms  217.138.221.130  
+FAIL #117 http://103.124.139.197:8181            10015ms  -                timed out
+FAIL #118 http://93.184.72.130:8080              10030ms  -                timed out
+FAIL #119 http://1.10.248.226:80                 10016ms  -                timed out
+ok   #120 http://85.121.149.232:18080             6562ms  64.83.46.153     
+ok   #121 http://20.33.10.79:443                  2545ms  20.33.10.79      
+FAIL #122 http://123.121.142.43:8888              1110ms  -                HTTP/1.1 502 Bad Gateway
+ok   #123 http://157.15.62.16:8080                6672ms  157.15.62.16     
+FAIL #124 http://212.175.50.85:8085              10015ms  -                timed out
+ok   #125 http://111.192.51.172:8888              2186ms  111.192.51.172   
+FAIL #126 http://128.201.29.12:8666              10030ms  -                timed out
+FAIL #127 http://171.236.130.227:13054           10031ms  -                timed out
+ok   #128 http://82.152.138.127:999               4094ms  45.177.178.151   
+ok   #129 http://104.219.55.50:8118               3703ms  104.28.226.7     
+FAIL #130 http://221.221.146.81:8888             10015ms  -                timed out
+ok   #131 http://221.221.162.6:8888               2077ms  221.221.162.6    
+ok   #132 http://47.95.167.187:8080               3155ms  47.95.167.187    
+ok   #133 http://206.135.47.108:999               3344ms  206.135.47.106   
+FAIL #134 http://77.50.183.34:8080                5000ms  -                proxy closed on CONNECT
+FAIL #135 http://51.17.99.116:57958                264ms  -                HTTP/1.1 400 Bad Request
+FAIL #136 http://45.172.223.185:999              10000ms  -                timed out
+FAIL #137 http://18.222.28.236:30657               438ms  -                HTTP/1.1 400 Bad Request
+FAIL #138 http://103.153.135.90:1080             10015ms  -                timed out
+ok   #139 http://123.121.140.72:8888              2422ms  123.121.140.72   
+FAIL #140 http://221.221.144.98:8888              2311ms  -                proxy closed on CONNECT
+FAIL #141 http://117.0.76.112:2057               10000ms  -                timed out
+ok   #142 http://45.125.64.215:443                2687ms  45.125.64.215    
+ok   #143 http://123.121.139.170:8888             7155ms  123.121.139.170  
+FAIL #144 http://160.22.206.154:8082             10000ms  -                timed out
+FAIL #145 http://3.21.129.156:48886                327ms  -                HTTP/1.1 400 Bad Request
+FAIL #146 http://103.157.117.116:8080            10015ms  -                timed out
+FAIL #147 http://132.255.10.137:999              10030ms  -                timed out
+FAIL #148 http://203.201.190.33:8080             10030ms  -                timed out
+FAIL #149 http://145.220.227.67:8080             10015ms  -                timed out
+FAIL #150 http://97.76.251.138:8080              10030ms  -                timed out
+FAIL #151 http://103.176.96.103:8082             10030ms  -                timed out
+FAIL #152 http://160.30.204.24:50005              2375ms  -                proxy closed on CONNECT
+FAIL #153 http://177.234.221.198:999             10016ms  -                timed out
+ok   #154 http://132.255.8.218:999                9187ms  132.255.10.130   
+ok   #155 http://145.220.227.208:8080             4421ms  145.220.183.29   
+FAIL #156 http://13.126.183.60:44018              5469ms  -                HTTP/1.1 502 Bad Gateway
+FAIL #157 http://103.109.173.170:80              10015ms  -                timed out
+FAIL #158 http://145.220.227.195:3128            10015ms  -                timed out
+FAIL #159 http://160.22.45.66:8080               10015ms  -                timed out
+ok   #160 http://145.220.227.142:8080             9296ms  145.220.183.29   
+FAIL #161 http://145.220.227.132:8118            10031ms  -                timed out
+ok   #162 http://145.220.227.213:8118             9186ms  145.220.183.29   
+FAIL #163 http://117.0.76.112:2064                5280ms  -                proxy closed on CONNECT
+FAIL #164 http://112.202.247.74:8082             10014ms  -                timed out
+FAIL #165 http://91.139.78.174:3128              10014ms  -                timed out
+FAIL #166 http://176.88.65.163:8080              10014ms  -                timed out
+FAIL #167 http://201.4.64.250:8080               10000ms  -                timed out
+FAIL #168 http://37.228.139.149:8080             10031ms  -                timed out
+FAIL #169 http://77.242.21.133:8080              10015ms  -                timed out
+FAIL #170 http://89.28.81.217:8443               10014ms  -                timed out
+FAIL #171 http://103.172.71.205:8080             10030ms  -                timed out
+FAIL #172 http://201.219.218.4:8080              10032ms  -                timed out
+FAIL #173 http://200.163.52.208:8080             10030ms  -                timed out
+FAIL #174 http://175.100.103.170:1256            10015ms  -                timed out
+FAIL #175 http://171.238.101.122:2114            10030ms  -                timed out
+FAIL #176 http://116.101.84.186:2083             10031ms  -                timed out
+FAIL #177 http://103.156.74.231:8080             10030ms  -                timed out
+ok   #178 http://155.248.219.12:3128              1609ms  155.248.219.12   
+FAIL #179 http://157.254.20.12:10808             11235ms  -                timed out
+FAIL #180 http://103.144.54.35:8082              10015ms  -                timed out
+FAIL #181 http://163.61.245.61:3125              10015ms  -                timed out
+FAIL #182 http://171.238.101.122:2033            10015ms  -                timed out
+FAIL #183 http://182.52.113.61:8080              10030ms  -                timed out
+ok   #184 http://46.17.43.219:7890                4985ms  145.79.120.61    
+FAIL #185 http://49.149.215.58:8082              10031ms  -                timed out
+FAIL #186 http://201.4.68.80:8080                10015ms  -                timed out
+FAIL #187 http://176.88.166.201:8080             10015ms  -                timed out
+FAIL #188 http://175.136.209.251:8080            10030ms  -                timed out
+FAIL #189 http://103.192.80.81:3129              10014ms  -                timed out
+FAIL #190 http://117.0.77.231:2096               10015ms  -                timed out
+FAIL #191 http://160.202.146.48:8080             10030ms  -                timed out
+FAIL #192 http://103.48.69.98:82                 10014ms  -                timed out
+ok   #193 http://177.234.221.197:999              8719ms  177.234.221.194  
+FAIL #194 http://119.73.110.51:8080              10030ms  -                timed out
+FAIL #195 http://45.38.22.64:999                 10030ms  -                timed out
+FAIL #196 http://80.252.137.246:1194              5000ms  -                proxy closed on CONNECT
+FAIL #197 http://116.204.166.51:8080             10031ms  -                timed out
+FAIL #198 http://163.52.18.234:8087              10015ms  -                timed out
+FAIL #199 http://94.103.82.138:8889               2844ms  -                HTTP/1.1 503 Too many open connections
+FAIL #200 http://116.204.166.202:8080            10032ms  -                timed out
+ok   #201 http://163.61.112.250:8080             10827ms  163.61.112.250   
+FAIL #202 http://93.177.126.101:8088              5000ms  -                proxy closed on CONNECT
+FAIL #203 http://189.51.168.30:999               10030ms  -                timed out
+FAIL #204 http://82.213.29.53:19000              10030ms  -                timed out
+FAIL #205 http://47.52.223.161:5872               1780ms  -                HTTP/1.1 403 Forbidden
+FAIL #206 http://16.51.5.77:47297                 5750ms  -                HTTP/1.1 502 Bad Gateway
+FAIL #207 http://145.220.227.164:3128             2141ms  -                HTTP/1.1 502 Bad Gateway
+FAIL #208 http://54.117.6.131:9723                 609ms  -                HTTP/1.1 400 Bad Request
+FAIL #209 http://111.192.31.170:8888             10014ms  -                timed out
+FAIL #210 http://115.178.55.219:8080             10030ms  -                timed out
+FAIL #211 http://103.38.104.214:8087             10031ms  -                timed out
+FAIL #212 http://45.114.60.178:3128              10031ms  -                timed out
+FAIL #213 http://103.80.215.123:8080             10030ms  -                timed out
+FAIL #214 http://176.88.65.164:8080              10032ms  -                timed out
+ok   #215 http://103.3.58.162:8088                9063ms  103.3.58.213     
+FAIL #216 http://18.230.23.72:14211               1234ms  -                HTTP/1.1 400 Bad Request
+FAIL #217 http://181.79.217.1:8080               10030ms  -                timed out
+FAIL #218 http://123.121.134.192:8888            10015ms  -                timed out
+ok   #219 http://1.20.101.27:8080                 9125ms  1.20.101.27      
+FAIL #220 http://18.231.126.121:30368             5578ms  -                HTTP/1.1 502 Bad Gateway
+FAIL #221 http://13.245.183.150:40000              469ms  -                HTTP/1.1 400 Bad Request
+ok   #222 http://190.108.82.244:999               9171ms  190.108.82.244   
+FAIL #223 http://13.215.184.250:41269              437ms  -                HTTP/1.1 400 Bad Request
+FAIL #224 http://47.129.105.10:17633               453ms  -                HTTP/1.1 400 Bad Request
+FAIL #225 http://18.163.182.106:11301              515ms  -                HTTP/1.1 400 Bad Request
+FAIL #226 http://13.215.184.250:8084               422ms  -                HTTP/1.1 400 Bad Request
+
+50 usable, 177 failed (out of 227)
