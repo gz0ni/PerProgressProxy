@@ -6,15 +6,23 @@ Task checklist. Keep it honest: mark `[x]` only after verification.
 
 - [ ] Manual TUI check on Windows Terminal: scroll a long `proxies.txt`, `v`
       paste (lines and a list URL), background `t` test, window resize.
+- [ ] Manual attach-modal check: `a`, hold arrows, move the mouse, switch layout
+      with Alt+Shift - the modal must stay open; `/` filter, `Esc` closes once.
 - [ ] macOS field test: build the dylib, run `tests/posix_selftest.sh` on real
       hardware, document signing / SIP limits.
 - [ ] Optional latency history per proxy, kept in `state/`.
 
 ## In Progress
 
-- [~] Nothing active.
+- [~] Windows console input rework (`ReadConsoleInputW`): code and unit tests
+      done (69 tests pass); only the manual attach-modal check above remains.
+
 
 ## Done
+
+- [x] Windows TUI input via console records: Alt+Shift / mouse / focus no longer
+      close modals; `Esc` in attach clears typed text first, then closes.
+      Verified by `tests/test_tui_windows.py`.
 
 - [x] Interactive console rework: stdlib TUI (`ppp/tui/`) with hotkeys, modals
       (paste proxies / list URL, attach, launch, rotation, confirm, help),

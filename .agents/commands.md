@@ -82,6 +82,8 @@ Rebuild the shim after touching `src/`. The Python side needs no build step.
 
 - `tests/test_specs.py` - proxy spec parsing, import and dedup (unittest).
 - `tests/test_tui_keys.py` - keyboard decoding (ANSI and Windows scan codes).
+- `tests/test_tui_windows.py` - Windows console record mapping (Alt/Esc, AltGr,
+  Ctrl, F-keys, ignored events) and attach-modal `Esc` behaviour.
 - `tests/test_tui_view.py` - pure rendering: layout, viewport, filters, modals.
 - `tests/testsocks.py` - fake SOCKS5 exit used by both selftests.
 - `tests/poller.py` - prints the exit IP every second, used to watch rotation.

@@ -322,7 +322,11 @@ class App:
 
     def _attach_key(self, modal: AttachModal, key: term_mod.Key) -> None:
         if key.name == "esc":
-            self.modal = None
+            if modal.manual:
+                modal.manual = ""
+                modal.note = ""
+            else:
+                self.modal = None
             return
         if key.name == "up":
             modal.selected = max(0, modal.selected - 1)

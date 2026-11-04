@@ -38,6 +38,17 @@ Traps already hit in this project. Check before repeating similar work.
 - Avoid: decode both forms (`ppp/tui/term.py`, `WINDOWS_SCAN`); test the
   decoder as a pure function (`tests/test_tui_keys.py`) instead of by hand.
 
+### Alt+Shift and focus events closed modals (2026-11-05)
+
+- What happened: switching the keyboard layout with Alt+Shift, or moving the
+  mouse, closed the attach modal; holding arrows did the same.
+- Root cause: `msvcrt.getwch()` reports Alt/layout switches as a bare ``,
+  indistinguishable from Esc, and non-key console events leaked into the stream.
+- Avoid: on Windows read `INPUT_RECORD`s via `ReadConsoleInputW`
+  (`Terminal._read_console`), drop key-up, mouse, focus and Alt-only events
+  (`map_windows_key`, tested in `tests/test_tui_windows.py`). Set
+  `PPP_DEBUG_KEYS=1` to trace raw records into `logs/keys.log`.
+
 ### `Line + Line` does not exist in the renderer (2026-10-29)
 
 - What happened: overlaying a modal on the base frame raised
