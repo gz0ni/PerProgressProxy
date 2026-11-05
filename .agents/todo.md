@@ -20,6 +20,10 @@ Task checklist. Keep it honest: mark `[x]` only after verification.
 
 ## Done
 
+- [x] Docs: `README.md` (English, main) + `README.ru.md`, step-by-step guides
+      `docs/USAGE.md` / `docs/USAGE.ru.md`. Commands, options, defaults and
+      hotkeys checked against `rot --help` and the source; relative links checked.
+
 - [x] macOS port: `__interpose` hooks in the shim, universal `bin/proxyinject.dylib`
       and `bin/rot-macos`, `run.sh` Darwin case, macOS-aware selftest. 95 tests
       pass on macOS; `tests/posix_selftest.sh` -> 10.9.9.9; `rot set enabled 1` +

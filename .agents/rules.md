@@ -41,6 +41,12 @@
   sample line from `proxy/`.
 - Windows-only behaviour is tested manually; document the manual step in the task.
 
+## Docs
+
+- `README.md` is English and primary; `README.ru.md` mirrors it in Russian.
+  `docs/USAGE.md` / `docs/USAGE.ru.md` are the user guide. A change to commands,
+  settings or hotkeys updates all four.
+
 ## Generated and External Files
 
 - `proxyinject.dll` and `inject.exe` are generated artifacts; rebuild from `src/`.
