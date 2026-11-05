@@ -4,6 +4,10 @@ Task checklist. Keep it honest: mark `[x]` only after verification.
 
 ## Open
 
+- [ ] Rebuild `bin/proxyinject.so` / `-aarch64.so` from the current
+      `src/proxyinject_posix.c` (needs zig) and rerun the WSL selftest.
+- [ ] Windows: `cargo build` after the `rot run` change (not compiled on the Mac).
+
 - [ ] Rust port: manual TUI pass on Windows Terminal; interactive TUI on Linux
       (only `rot status` / `--version` were run, in WSL) and on macOS.
 - [ ] Manual TUI check on Windows Terminal: scroll a long proxy list, `v`
@@ -19,6 +23,12 @@ Task checklist. Keep it honest: mark `[x]` only after verification.
 
 
 ## Done
+
+- [x] macOS: opencode proxied. DNS-SD + `getaddrinfo_async_start` hooks, `rot run`
+      (foreground exec), *_PROXY stripped. 96 tests; selftest 10.9.9.9;
+      `rot run` cli -> 10.9.9.9; `rot run opencode run --standalone` with a dead
+      proxy logs `failed for openrouter.ai:443` etc. Linux `.so` not rebuilt
+      (no zig on the Mac; the shared C change is a pure refactor there).
 
 - [x] Docs: `README.md` (English, main) + `README.ru.md`, step-by-step guides
       `docs/USAGE.md` / `docs/USAGE.ru.md`. Commands, options, defaults and

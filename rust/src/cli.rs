@@ -97,6 +97,11 @@ pub enum Cmd {
         #[arg(value_name = "CMD")]
         command: String,
     },
+    /// run a program behind the proxy in this terminal, e.g. `rot run opencode`
+    Run {
+        #[arg(value_name = "PROGRAM", required = true, trailing_var_arg = true, allow_hyphen_values = true)]
+        argv: Vec<String>,
+    },
     /// inject into a running process (pid or exe name)
     Attach {
         #[arg(value_name = "PID|EXE")]
@@ -440,6 +445,12 @@ pub fn cmd_launch(paths: &Paths, command: &str) -> i32 {
     cmd_inject(paths, Some(command), None, &[], false)
 }
 
+pub fn cmd_run(paths: &Paths, argv: &[String]) -> i32 {
+    let error = backend::run_foreground(paths, argv);
+    eprintln!("{}", error);
+    1
+}
+
 pub fn cmd_attach(paths: &Paths, target: &str) -> i32 {
     let outcome = match target.parse::<u32>() {
         Ok(pid) if target.bytes().all(|b| b.is_ascii_digit()) => backend::inject_pid(paths, pid),
@@ -605,6 +616,7 @@ pub fn dispatch(paths: &Paths, cmd: Cmd) -> i32 {
         Cmd::Watch { name, interval } => cmd_watch(paths, &name, interval),
         Cmd::Inject { launch, name, pid, list } => cmd_inject(paths, launch.as_deref(), name.as_deref(), &pid, list),
         Cmd::Launch { command } => cmd_launch(paths, &command),
+        Cmd::Run { argv } => cmd_run(paths, &argv),
         Cmd::Attach { target } => cmd_attach(paths, &target),
         Cmd::Kill { pid } => cmd_kill(paths, pid),
         Cmd::Raw { credentialed } => cmd_raw(paths, credentialed),

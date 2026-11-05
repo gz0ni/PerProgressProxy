@@ -67,6 +67,7 @@ POSIX (inside WSL/Linux/macOS):
 sh tests/posix_selftest.sh     # fake SOCKS5 exit, expects exit_ip=10.9.9.9
 sh tests/posix_live.sh         # first credentialed proxy, prints only the exit IP
 rot launch "sleep 5" && rot status
+rot run /path/to/tool --flag    # foreground, exec in this terminal
 ```
 
 On macOS the selftest uses Homebrew `python3` as the client (SIP strips
@@ -116,7 +117,7 @@ zig cc -target x86_64-linux-gnu.2.17 -O2 -s -shared -fPIC "$HID" $SQ \
 zig cc -target aarch64-linux-gnu.2.17 -O2 -s -shared -fPIC "$HID" $SQ \
   -o bin/proxyinject-aarch64.so src/proxyinject_posix.c src/sqlite/sqlite3.c -ldl
 # macOS, natively on a Mac (universal, ad-hoc signed):
-cc -arch arm64 -arch x86_64 -mmacosx-version-min=11.0 -O2 -dynamiclib "$HID" $SQ \
+cc -arch arm64 -arch x86_64 -mmacosx-version-min=13.0 -O2 -dynamiclib "$HID" $SQ \
   -o bin/proxyinject.dylib src/proxyinject_posix.c src/sqlite/sqlite3.c
 codesign -s - -f bin/proxyinject.dylib
 ```
@@ -126,7 +127,7 @@ shells here eat backslashes.
 
 ## Tests
 
-Rust unit tests live next to the code (`cargo test`, 89 tests):
+Rust unit tests live next to the code (`cargo test`, 96 tests):
 
 - `specs.rs` - proxy spec parsing and token splitting.
 - `store.rs` - config edits, import, sync, dedup, removal.

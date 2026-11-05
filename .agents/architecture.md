@@ -49,7 +49,10 @@
 - Injection backend. Windows shells out to `inject.exe`
   (`--launch` / `--name` / `--pid` / `--list`).
 - POSIX starts the target with `LD_PRELOAD` / `DYLD_INSERT_LIBRARIES` plus
-  `PROXYINJECT_DIR`; attaching to a running process returns an error.
+  `PROXYINJECT_DIR` and strips `HTTP(S)_PROXY` / `ALL_PROXY` (both cases):
+  `launch` spawns in the background with cwd = root, `run_foreground`
+  (`rot run`) `exec`s in the current terminal and keeps the caller's cwd.
+  Attaching to a running process returns an error pointing to `rot run`.
 
 ### `netcheck.rs`
 
@@ -94,6 +97,10 @@
   originals with `dlsym(RTLD_NEXT, ...)`; macOS defines `ppp_connect` /
   `ppp_getaddrinfo` and registers them in `__DATA,__interpose` (two-level
   namespaces ignore plain overrides). No inline patching.
+- macOS also interposes `getaddrinfo_async_start`, `DNSServiceQueryRecord`,
+  `DNSServiceQueryRecordWithAttribute` (Bun's resolver, fetched via `dlsym`) and
+  `DNSServiceRefDeallocate` (frees the per-query context) to fill the
+  address -> hostname map; without it Clash fake-ip addresses are refused.
 - Resolves the repository folder from `PROXYINJECT_DIR` or its own `dladdr` path,
   then reads the same `proxies.db`.
 - Turns the app's socket into the socket to the proxy with `dup2`, so the app's

@@ -15,6 +15,19 @@ Known bugs and their fixes. Newest first. Status: `open` / `fixed` / `won't fix`
 
 ---
 
+### Clash fake-ip connections refused for Bun apps on macOS (2026-11-05) - fixed
+
+- Symptom: opencode (Bun) under the dylib failed every request; the log showed
+  nothing.
+- Root cause: Bun's resolver uses `DNSServiceQueryRecordWithAttribute`, so the
+  name map was empty and `connect()` to `198.18.x.x` hit the silent
+  `ENETUNREACH` branch.
+- Fix: interpose the DNS-SD query calls and `getaddrinfo_async_start`, record
+  A / AAAA answers under the queried name.
+- Prevent: test new runtimes with a dead proxy (`PROXYINJECT_FORCE=socks5://127.0.0.1:1`):
+  every request must log `failed for <hostname>:443`.
+
+
 ### macOS shim never hooked `connect()` (2026-11-05) - fixed
 
 - Symptom: targets launched with `proxyinject.dylib` kept their direct IP.

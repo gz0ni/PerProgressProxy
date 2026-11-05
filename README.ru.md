@@ -73,7 +73,7 @@ cd /path/to/PerProcessProxy
 ./run.sh add socks5://1.2.3.4:1080
 ./run.sh test --prune
 ./run.sh on
-./run.sh launch "/path/to/app"
+./run.sh run /path/to/app
 ```
 
 </td></tr>
@@ -123,7 +123,7 @@ rot status        # что применено и какие процессы ж�
 > На macOS системные программы под защитой SIP (`/usr/bin/curl`,
 > `/usr/bin/python3`, …) и приложения с hardened runtime игнорируют
 > `DYLD_INSERT_LIBRARIES`. Запускайте через прокси программы из Homebrew или
-> собранные самостоятельно. Подробнее - в [инструкции](docs/USAGE.ru.md#macos).
+> собранные самостоятельно, нужна macOS 13+. Подробнее - в [инструкции](docs/USAGE.ru.md#macos).
 
 ## Ограничения
 

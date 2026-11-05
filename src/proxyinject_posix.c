@@ -48,7 +48,9 @@
 #include <time.h>
 #include <unistd.h>
 #ifdef __APPLE__
+#include <dns_sd.h>
 #include <libproc.h>
+#include <mach/mach.h>
 #endif
 
 #ifndef RTLD_NEXT
@@ -823,6 +825,17 @@ static int proxy_attempt(const Proxy *p, const char *host, int port,
   return fd;
 }
 
+static void remember_addrinfo(const char *node, const struct addrinfo *res)
+{
+  if (!node || !strcmp(node, "localhost")) return;
+  for (const struct addrinfo *ai = res; ai; ai = ai->ai_next) {
+    if (ai->ai_family == AF_INET)
+      map_store(AF_INET, (const unsigned char *)&((struct sockaddr_in *)ai->ai_addr)->sin_addr, node);
+    else if (ai->ai_family == AF_INET6)
+      map_store(AF_INET6, (const unsigned char *)&((struct sockaddr_in6 *)ai->ai_addr)->sin6_addr, node);
+  }
+}
+
 #ifdef __APPLE__
 #define HOOK_CONNECT ppp_connect
 #define HOOK_GETADDRINFO ppp_getaddrinfo
@@ -947,18 +960,144 @@ int HOOK_GETADDRINFO(const char *node, const char *service, const struct addrinf
   if (!real_getaddrinfo) return EAI_FAIL;
   int rc = real_getaddrinfo(node, service, hints, res);
   if (rc != 0 || !node || !*res) return rc;
-  if (!strcmp(node, "localhost")) return rc;
-
-  for (struct addrinfo *ai = *res; ai; ai = ai->ai_next) {
-    if (ai->ai_family == AF_INET)
-      map_store(AF_INET, (const unsigned char *)&((struct sockaddr_in *)ai->ai_addr)->sin_addr, node);
-    else if (ai->ai_family == AF_INET6)
-      map_store(AF_INET6, (const unsigned char *)&((struct sockaddr_in6 *)ai->ai_addr)->sin6_addr, node);
-  }
+  remember_addrinfo(node, *res);
   return rc;
 }
 
 #ifdef __APPLE__
+typedef void (*gai_async_cb)(int32_t status, struct addrinfo *res, void *context);
+extern int32_t getaddrinfo_async_start(mach_port_t *port, const char *node, const char *service,
+                                       const struct addrinfo *hints, gai_async_cb callback,
+                                       void *context);
+
+typedef struct {
+  gai_async_cb callback;
+  void *context;
+  char node[MAX_HOST];
+} AsyncLookup;
+
+static void async_lookup_done(int32_t status, struct addrinfo *res, void *arg)
+{
+  AsyncLookup *lookup = (AsyncLookup *)arg;
+  if (status == 0 && res) remember_addrinfo(lookup->node, res);
+  gai_async_cb callback = lookup->callback;
+  void *context = lookup->context;
+  free(lookup);
+  callback(status, res, context);
+}
+
+int32_t ppp_getaddrinfo_async_start(mach_port_t *port, const char *node, const char *service,
+                                    const struct addrinfo *hints, gai_async_cb callback,
+                                    void *context)
+{
+  AsyncLookup *lookup = NULL;
+  if (node && callback && strcmp(node, "localhost")) lookup = (AsyncLookup *)malloc(sizeof(*lookup));
+  if (!lookup) return getaddrinfo_async_start(port, node, service, hints, callback, context);
+  lookup->callback = callback;
+  lookup->context = context;
+  snprintf(lookup->node, sizeof(lookup->node), "%s", node);
+  return getaddrinfo_async_start(port, node, service, hints, async_lookup_done, lookup);
+}
+
+typedef struct RecordQuery {
+  struct RecordQuery *next;
+  DNSServiceRef ref;
+  DNSServiceQueryRecordReply callback;
+  void *context;
+  char node[MAX_HOST];
+} RecordQuery;
+
+static pthread_mutex_t g_query_lock = PTHREAD_MUTEX_INITIALIZER;
+static RecordQuery *g_queries = NULL;
+
+static void record_reply(DNSServiceRef ref, DNSServiceFlags flags, uint32_t ifindex,
+                         DNSServiceErrorType error, const char *fullname, uint16_t rrtype,
+                         uint16_t rrclass, uint16_t rdlen, const void *rdata, uint32_t ttl,
+                         void *arg)
+{
+  RecordQuery *query = (RecordQuery *)arg;
+  if (error == kDNSServiceErr_NoError && (flags & kDNSServiceFlagsAdd) && rdata) {
+    if (rrtype == kDNSServiceType_A && rdlen == 4)
+      map_store(AF_INET, (const unsigned char *)rdata, query->node);
+    else if (rrtype == kDNSServiceType_AAAA && rdlen == 16)
+      map_store(AF_INET6, (const unsigned char *)rdata, query->node);
+  }
+  query->callback(ref, flags, ifindex, error, fullname, rrtype, rrclass, rdlen, rdata, ttl,
+                  query->context);
+}
+
+static RecordQuery *record_query_new(const char *name, DNSServiceQueryRecordReply callback,
+                                     void *context)
+{
+  if (!name || !callback) return NULL;
+  if (!strcmp(name, "localhost") || !strcmp(name, "localhost.")) return NULL;
+  RecordQuery *query = (RecordQuery *)calloc(1, sizeof(*query));
+  if (!query) return NULL;
+  query->callback = callback;
+  query->context = context;
+  snprintf(query->node, sizeof(query->node), "%s", name);
+  size_t len = strlen(query->node);
+  if (len > 1 && query->node[len - 1] == '.') query->node[len - 1] = 0;
+  return query;
+}
+
+static DNSServiceErrorType record_query_started(RecordQuery *query, DNSServiceErrorType rc,
+                                                DNSServiceRef *ref)
+{
+  if (rc != kDNSServiceErr_NoError || !ref || !*ref) {
+    free(query);
+    return rc;
+  }
+  query->ref = *ref;
+  pthread_mutex_lock(&g_query_lock);
+  query->next = g_queries;
+  g_queries = query;
+  pthread_mutex_unlock(&g_query_lock);
+  return rc;
+}
+
+DNSServiceErrorType ppp_DNSServiceQueryRecord(DNSServiceRef *ref, DNSServiceFlags flags,
+                                              uint32_t ifindex, const char *name,
+                                              uint16_t rrtype, uint16_t rrclass,
+                                              DNSServiceQueryRecordReply callback, void *context)
+{
+  RecordQuery *query = record_query_new(name, callback, context);
+  if (!query) return DNSServiceQueryRecord(ref, flags, ifindex, name, rrtype, rrclass, callback, context);
+  DNSServiceErrorType rc =
+      DNSServiceQueryRecord(ref, flags, ifindex, name, rrtype, rrclass, record_reply, query);
+  return record_query_started(query, rc, ref);
+}
+
+DNSServiceErrorType ppp_DNSServiceQueryRecordWithAttribute(
+    DNSServiceRef *ref, DNSServiceFlags flags, uint32_t ifindex, const char *name,
+    uint16_t rrtype, uint16_t rrclass, const DNSServiceAttribute *attr,
+    DNSServiceQueryRecordReply callback, void *context)
+{
+  RecordQuery *query = record_query_new(name, callback, context);
+  if (!query)
+    return DNSServiceQueryRecordWithAttribute(ref, flags, ifindex, name, rrtype, rrclass, attr,
+                                              callback, context);
+  DNSServiceErrorType rc = DNSServiceQueryRecordWithAttribute(ref, flags, ifindex, name, rrtype,
+                                                              rrclass, attr, record_reply, query);
+  return record_query_started(query, rc, ref);
+}
+
+void ppp_DNSServiceRefDeallocate(DNSServiceRef ref)
+{
+  RecordQuery *found = NULL;
+  pthread_mutex_lock(&g_query_lock);
+  for (RecordQuery **link = &g_queries; *link; link = &(*link)->next) {
+    if ((*link)->ref == ref) {
+      found = *link;
+      *link = found->next;
+      break;
+    }
+  }
+  pthread_mutex_unlock(&g_query_lock);
+  DNSServiceRefDeallocate(ref);
+  free(found);
+}
+
 typedef struct {
   const void *replacement;
   const void *original;
@@ -967,6 +1106,11 @@ typedef struct {
 __attribute__((used, section("__DATA,__interpose"))) static const Interpose g_interpose[] = {
   {(const void *)ppp_connect, (const void *)connect},
   {(const void *)ppp_getaddrinfo, (const void *)getaddrinfo},
+  {(const void *)ppp_getaddrinfo_async_start, (const void *)getaddrinfo_async_start},
+  {(const void *)ppp_DNSServiceQueryRecord, (const void *)DNSServiceQueryRecord},
+  {(const void *)ppp_DNSServiceQueryRecordWithAttribute,
+   (const void *)DNSServiceQueryRecordWithAttribute},
+  {(const void *)ppp_DNSServiceRefDeallocate, (const void *)DNSServiceRefDeallocate},
 };
 #endif
 

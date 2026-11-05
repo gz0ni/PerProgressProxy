@@ -15,6 +15,21 @@ Non-trivial choices and why. Newest first.
 
 ---
 
+### `rot run` execs in the foreground; launches drop *_PROXY (2026-11-05)
+
+- Decision: `rot run <program> [args...]` replaces `rot` with the target (`exec`)
+  on POSIX; on Windows it maps to `inject.exe --launch`. Both `run` and
+  `launch` remove `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY` in both cases.
+- Reason: `rot launch` spawns and exits, which leaves a TUI target fighting the
+  shell for the terminal. Proxy env vars make apps connect to a local proxy,
+  which the shim passes through, defeating the tool.
+- Alternatives considered: waiting on the child (signals and job control need
+  forwarding); stripping only loopback proxies (a remote one would be chained
+  through ours, also unwanted).
+- Consequences: dylib minimum is macOS 13 (`DNSServiceQueryRecordWithAttribute`);
+  `rot-macos` stays at 11.
+
+
 ### macOS binaries built natively, universal (2026-11-05)
 
 - Decision: `bin/proxyinject.dylib` and `bin/rot-macos` are built on a Mac with

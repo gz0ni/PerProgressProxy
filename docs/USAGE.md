@@ -125,13 +125,29 @@ In the console: `l` to launch, `a` to attach (type a pid or exe name).
 ### Linux and macOS
 
 Only launching works there: the library is loaded when the program starts.
+Attaching to an app that is already running is not possible, so close it and
+start it again through `rot`.
+
+**`rot run`: in this terminal.** Best for terminal programs (CLI, TUI, AI
+agents). The program replaces `rot` in the current terminal: keyboard, Ctrl+C
+and the working directory stay as usual. Arguments are passed as is, no quotes
+needed.
+
+```sh
+rot run opencode --standalone
+rot run /opt/homebrew/opt/curl/bin/curl -s http://checkip.amazonaws.com
+```
+
+**`rot launch`: in the background.** For GUI apps. `rot` exits right away and
+the app keeps running. Stop it with `kill <pid>` or `rot kill <pid>`.
 
 ```sh
 rot launch "/usr/bin/firefox --new-instance"
-rot launch "/opt/homebrew/bin/curl -s http://checkip.amazonaws.com"
 ```
 
-The app keeps running after `rot` exits. Stop it with `kill <pid>` or `rot kill <pid>`.
+Both commands remove `HTTP_PROXY`, `HTTPS_PROXY` and `ALL_PROXY` (any case)
+from the program's environment. Otherwise the app would send its traffic to
+the proxy in those variables (often Clash on `127.0.0.1:7890`) and skip ours.
 
 ## 6. Switch and rotate
 
@@ -204,7 +220,8 @@ The old console driven by typed commands is still there: `rot console`.
 | `rot use <N>` / `rot next` | switch now |
 | `rot auto <N>` | rotate every N seconds, `0` stops |
 | `rot on` / `rot off` | enable / bypass |
-| `rot launch "<cmd>"` | start a program behind the proxy |
+| `rot run <program> [args...]` | run a program behind the proxy in this terminal |
+| `rot launch "<cmd>"` | start a program behind the proxy in the background |
 | `rot attach <pid\|exe>` | inject into a running process (Windows) |
 | `rot inject --pid N \| --name X \| --launch "cmd" \| --list` | low-level injector access (Windows) |
 | `rot watch <exe> [--interval S]` | inject new instances as they appear (Windows) |
@@ -272,10 +289,37 @@ the real host. Loopback is never proxied, so such traffic goes through Clash,
 not through PerProcessProxy. Turn off "use system proxy" in the app, or the
 system proxy itself.
 
+**Clash fake-ip.** With Clash TUN in fake-ip mode every hostname resolves to
+`198.18.x.x`. The library remembers which name produced which address. On macOS
+it watches `getaddrinfo`, `getaddrinfo_async_start` and the
+`DNSServiceQueryRecord*` calls that Bun and some other runtimes use, so the
+proxy receives the real hostname. A fake address whose name it never saw is
+refused instead of leaking.
+
+**Minimum version.** The dylib needs macOS 13 Ventura or newer.
+
 **Intel apps on Apple Silicon.** They run under Rosetta and work with the same
 dylib. `arch -x86_64` is a system binary and drops `DYLD_*`, so pass variables
 through it explicitly:
 `arch -x86_64 -e DYLD_INSERT_LIBRARIES=... app`.
+
+## Recipe: opencode
+
+opencode (and other apps with a client / server split) often talks to a
+background server over `127.0.0.1`. The OpenCode desktop app starts that server
+(`opencode-cli serve --service`) without our library, and loopback is never
+proxied. So the requests to the model go out directly, even if the `opencode`
+you started yourself sits behind the proxy.
+
+Give it its own server inside the proxied process:
+
+```sh
+rot on
+rot run opencode --standalone
+```
+
+Check with `rot status` (two `opencode` processes, both `alive`) and
+`logs/<pid>.log`: lines such as `proxy 0 openrouter.ai via 1.2.3.4:1080`.
 
 ## Troubleshooting
 
@@ -285,6 +329,8 @@ through it explicitly:
 | Process not listed at all | the library was not loaded: on macOS see [above](#macos); on Windows run the console as admin for elevated apps |
 | App says "no connection" | `fail_closed=1` and every proxy failed. Run `rot test --prune`, or `rot set fail_closed 0` to fall back to direct (leaks your IP) |
 | `proxy failed rc=-9/-10` in the log | handshake timeout: the proxy is dead or blocked by the ISP. The next one is tried |
+| App works, but the log has no `proxy ...` lines | it talks to a local helper or server over `127.0.0.1` (see [opencode](#recipe-opencode)), or ignores `connect()` (Network.framework on macOS) |
+| `rot launch` breaks a terminal app | use `rot run` for CLI / TUI programs |
 | Some requests bypass the proxy | the app uses UDP/QUIC (blocked, should fall back to TCP), or Network.framework on macOS, or attached too late on Windows: use `launch` / `watch` |
 | Antivirus deletes `proxyinject.dll` | add the project folder to exclusions |
 

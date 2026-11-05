@@ -14,6 +14,30 @@ Traps already hit in this project. Check before repeating similar work.
 
 ---
 
+### opencode under the shim still went direct (2026-11-05)
+
+- What happened: `opencode` launched with the dylib showed no `proxy ...` lines.
+- Root causes, stacked:
+  1. The OpenCode desktop app runs `opencode-cli serve --service`; the CLI talks
+     to it over `127.0.0.1`, which is never proxied. Fix on the user side:
+     `opencode --standalone`.
+  2. The shell exports `HTTP(S)_PROXY=http://127.0.0.1:7890` (Clash); Bun honours
+     it and connects to loopback. `rot launch` / `rot run` now strip these.
+  3. Bun resolves through `DNSServiceQueryRecordWithAttribute` (via `dlsym`),
+     not `getaddrinfo`, so fake-ip `198.18.x.x` had no name and was refused
+     silently. Now interposed.
+- Avoid: when a target "is not proxied", trace with a scratch build that logs
+  every `connect`, `dlsym` and `dlopen`; check `env | grep -i proxy` and
+  `ps` for helper servers first.
+
+### zsh does not word-split `$SQ` (2026-11-05)
+
+- What happened: `cc ... $SQ` failed with `DSQLITE_...` undeclared.
+- Root cause: zsh passes an unquoted variable as one word.
+- Avoid: run build snippets with `sh script.sh`, not inline in zsh.
+
+---
+
 ### macOS: shim loads but nothing is proxied (2026-11-05)
 
 - What happened: with `DYLD_INSERT_LIBRARIES` the dylib logged INIT, yet every

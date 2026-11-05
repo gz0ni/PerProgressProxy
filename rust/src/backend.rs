@@ -61,7 +61,7 @@ fn run_windows(paths: &Paths, args: &[&str]) -> Outcome {
 
 pub fn list_processes(paths: &Paths) -> Outcome {
     if !IS_WINDOWS {
-        return fail("process listing uses the Windows injector; use ps for now");
+        return fail("attach works on Windows only; quit and start the app with: rot run <program>");
     }
     run_windows(paths, &["--list"])
 }
@@ -69,8 +69,8 @@ pub fn list_processes(paths: &Paths) -> Outcome {
 pub fn inject_pid(paths: &Paths, pid: u32) -> Outcome {
     if !IS_WINDOWS {
         return fail(
-            "attaching to an already running process needs ptrace and is not implemented; \
-             start the app through the shim instead: launch \"...\"",
+            "attaching to a running process is Windows-only; \
+             start the app with: rot run <program>",
         );
     }
     run_windows(paths, &["--pid", &pid.to_string()])
@@ -78,7 +78,7 @@ pub fn inject_pid(paths: &Paths, pid: u32) -> Outcome {
 
 pub fn inject_name(paths: &Paths, name: &str) -> Outcome {
     if !IS_WINDOWS {
-        return fail("attaching by name is Windows-only; start the app through the shim instead");
+        return fail("attach works on Windows only; start the app with: rot run <program>");
     }
     run_windows(paths, &["--name", name])
 }
@@ -143,11 +143,9 @@ pub fn shell_split(text: &str) -> Result<Vec<String>, BackendError> {
     Ok(words)
 }
 
-pub fn launch(paths: &Paths, command: &str) -> Outcome {
-    if IS_WINDOWS {
-        return run_windows(paths, &["--launch", command]);
-    }
-    let argv = shell_split(command)?;
+const PROXY_ENV: [&str; 6] = ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"];
+
+fn shim_command(paths: &Paths, argv: &[String]) -> Result<(Command, String), BackendError> {
     if argv.is_empty() {
         return fail("empty command");
     }
@@ -165,14 +163,25 @@ pub fn launch(paths: &Paths, command: &str) -> Outcome {
     } else {
         format!("{}:{}", shim.display(), existing)
     };
-    let child = Command::new(&argv[0])
-        .args(&argv[1..])
-        .env(var, value)
-        .env("PROXYINJECT_DIR", &paths.root)
+    let mut command = Command::new(&argv[0]);
+    command.args(&argv[1..]).env(var, value).env("PROXYINJECT_DIR", &paths.root);
+    for name in PROXY_ENV {
+        command.env_remove(name);
+    }
+    let shim_name = shim.file_name().and_then(|n| n.to_str()).unwrap_or("?").to_string();
+    Ok((command, shim_name))
+}
+
+pub fn launch(paths: &Paths, command: &str) -> Outcome {
+    if IS_WINDOWS {
+        return run_windows(paths, &["--launch", command]);
+    }
+    let argv = shell_split(command)?;
+    let (mut command, shim_name) = shim_command(paths, &argv)?;
+    let child = command
         .current_dir(&paths.root)
         .spawn()
         .map_err(|e| BackendError(format!("cannot start {}: {}", argv[0], e)))?;
-    let shim_name = shim.file_name().and_then(|n| n.to_str()).unwrap_or("?").to_string();
     Ok((
         0,
         vec![
@@ -180,6 +189,28 @@ pub fn launch(paths: &Paths, command: &str) -> Outcome {
             format!("target keeps running; stop it with: kill {}", child.id()),
         ],
     ))
+}
+
+#[cfg(unix)]
+pub fn run_foreground(paths: &Paths, argv: &[String]) -> BackendError {
+    use std::os::unix::process::CommandExt;
+    match shim_command(paths, argv) {
+        Ok((mut command, _)) => BackendError(format!("cannot start {}: {}", argv[0], command.exec())),
+        Err(e) => e,
+    }
+}
+
+#[cfg(windows)]
+pub fn run_foreground(paths: &Paths, argv: &[String]) -> BackendError {
+    let line = argv
+        .iter()
+        .map(|a| if a.contains(' ') { format!("\"{}\"", a) } else { a.clone() })
+        .collect::<Vec<_>>()
+        .join(" ");
+    match run_windows(paths, &["--launch", &line]) {
+        Ok((rc, lines)) => BackendError(format!("{} (rc {})", lines.join("; "), rc)),
+        Err(e) => e,
+    }
 }
 
 #[cfg(test)]
@@ -191,5 +222,21 @@ mod tests {
         assert_eq!(shell_split("a 'b c' \"d e\" f\\ g").unwrap(), vec!["a", "b c", "d e", "f g"]);
         assert_eq!(shell_split("  ").unwrap(), Vec::<String>::new());
         assert!(shell_split("a 'b").is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn shim_command_drops_proxy_env() {
+        let dir = std::env::temp_dir().join(format!("ppp-backend-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(dir.join("proxyinject.so"), b"").unwrap();
+        let paths = Paths::new(dir.clone());
+        let (command, _) = shim_command(&paths, &["true".to_string()]).unwrap();
+        let envs: Vec<_> = command.get_envs().collect();
+        for name in PROXY_ENV {
+            assert!(envs.iter().any(|(k, v)| *k == name && v.is_none()), "{} not removed", name);
+        }
+        assert!(envs.iter().any(|(k, v)| *k == "LD_PRELOAD" && v.is_some()));
+        std::fs::remove_dir_all(&dir).ok();
     }
 }

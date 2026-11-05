@@ -72,7 +72,7 @@ cd /path/to/PerProcessProxy
 ./run.sh add socks5://1.2.3.4:1080
 ./run.sh test --prune
 ./run.sh on
-./run.sh launch "/path/to/app"
+./run.sh run /path/to/app
 ```
 
 </td></tr>
@@ -121,7 +121,7 @@ controls everything.
 > [!NOTE]
 > On macOS, SIP-protected system binaries (`/usr/bin/curl`, `/usr/bin/python3`, …)
 > and hardened-runtime apps ignore `DYLD_INSERT_LIBRARIES`. Use Homebrew or
-> self-built programs as targets. Details are in the
+> self-built programs as targets, minimum macOS 13. Details are in the
 > [usage guide](docs/USAGE.md#macos).
 
 ## Limits
@@ -236,7 +236,7 @@ zig cc -target aarch64-linux-gnu.2.17 -O2 -s -shared -fPIC "$HID" $SQ \
 macOS (Xcode command line tools):
 
 ```sh
-cc -arch arm64 -arch x86_64 -mmacosx-version-min=11.0 -O2 -dynamiclib "$HID" $SQ \
+cc -arch arm64 -arch x86_64 -mmacosx-version-min=13.0 -O2 -dynamiclib "$HID" $SQ \
   -o bin/proxyinject.dylib src/proxyinject_posix.c src/sqlite/sqlite3.c
 codesign -s - -f bin/proxyinject.dylib
 ```
