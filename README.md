@@ -13,7 +13,7 @@ required for normal apps.
 app.exe --connect(example.com:443)--> [ proxyinject.dll ] --SOCKS5/HTTP--> 1.2.3.4:1080 --> example.com
 ```
 
-Every change to the proxy list (`proxies.db`) / `config.ini` is picked up by running processes
+Every change to the database (`proxies.db`: the proxy list and the settings) is picked up by running processes
 in under a second, and live sockets are dropped on rotation, so the app shows a
 new exit IP almost immediately - without restarting it.
 
@@ -161,7 +161,6 @@ http://user:pass@1.2.3.4:8080
 | path | owner | purpose |
 |---|---|---|
 | `bin/` | build | `inject.exe`, `proxyinject.dll`, `proxyinject.so`, `proxyinject.dylib` |
-| `config.ini` | CLI / you | behaviour, live-reloaded |
 | `proxies.db` | the panel | SQLite database with the proxy list (table `proxies`); created on first run, recreated empty if deleted. The DLL and the POSIX shim open it read-only |
 | `proxy/*.txt` | you | intake folder, merged on start and by `import` |
 | `state/<pid>.txt` | DLL / shim | pid, exe, current proxy, enabled, last rotation |
@@ -174,13 +173,17 @@ files of dead processes are removed by `clean`, and the old
 `state_<pid>.txt` files in the repository root are migrated into `state/` on
 the first run.
 
-Binaries live in `bin/`. The DLL finds `config.ini` through `PROXYINJECT_DIR`,
+Binaries live in `bin/`. The DLL finds `proxies.db` through `PROXYINJECT_DIR`,
 then its own folder, then the parent folder - so the repository root stays the
 working directory even though the DLL is one level down.
 
 ---
 
-## Settings (`config.ini`, live-reloaded)
+## Settings (table `settings` in `proxies.db`, live-reloaded)
+
+`rot config` shows them, `rot set <key> <value>` changes one (for example
+`rot set fail_closed 0`); running processes follow within about a second.
+Defaults are written on the first run. An old `config.ini` is imported once and removed.
 
 | key | default | meaning |
 |---|---|---|
@@ -226,7 +229,7 @@ routing, DNS or adapters.
 | Linux x64 / arm64 | `proxyinject.so` via `LD_PRELOAD` | no (launch only) | ready |
 | macOS arm64 / x64 | `proxyinject.dylib` via `DYLD_INSERT_LIBRARIES` | no (launch only) | built, needs testing |
 
-The POSIX shim uses the same `config.ini`, `proxies.db`, `state/` and `logs/`,
+The POSIX shim uses the same `proxies.db`, `state/` and `logs/`,
 so the console and the proxy list are shared. Start a target with:
 
 ```sh

@@ -15,6 +15,13 @@ Non-trivial choices and why. Newest first.
 
 ---
 
+### Settings moved from config.ini into the database (2026-11-05)
+
+- Decision: table `settings(key, value)` in `proxies.db` replaces `config.ini`; `rot config` / `rot set` edit it. The DLL and shim render the table to `key=value` lines and reuse their old parsers.
+- Reason: requested; `config.ini` was tracked in git and showed runtime state (`current`) as a permanent diff, and a second source of truth next to the DB.
+- Alternatives considered: untracking `config.ini` and generating it on first run (smaller, but keeps the file); a `rot.toml` for the panel only (C side still needs the values).
+- Consequences: no hand editing of settings (use `rot set`, only the 11 known keys are accepted); an old `config.ini` is imported once and removed; the data-folder marker for the DLL/shim and for `rot` is now `proxies.db`; one file signature (`proxies.db`) triggers reloads of both settings and proxies.
+
 ### Proxy list lives only in SQLite, read by the DLL (2026-11-05)
 
 - Decision: `proxies.db` (SQLite) is the only store of the list; `proxies.txt` is gone. The DLL and the POSIX shim embed SQLite (`src/sqlite/`, amalgamation 3.54.1) and read the table read-only.

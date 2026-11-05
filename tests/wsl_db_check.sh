@@ -8,7 +8,7 @@ ROOT=$(pwd)
 T=$(mktemp -d)
 export PPP_ROOT=$T
 ROT=$ROOT/bin/rot
-printf 'enabled = 1\ncurrent = 0\nfail_closed = 1\nlog = 1\n' > "$T/config.ini"
+"$ROT" set enabled 1 >/dev/null
 
 python3 tests/testsocks.py --port 11080 --fake-ip 10.9.9.9 >/dev/null 2>&1 &
 A=$!

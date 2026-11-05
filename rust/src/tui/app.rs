@@ -667,7 +667,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let paths = Paths::new(dir);
-        std::fs::write(&paths.config, "enabled = 1\ncurrent = 0\nrotate_sec = 0\n").unwrap();
+        Store::new(paths.clone()).set_config(&[("enabled", "1".to_string()), ("current", "0".to_string())]).unwrap();
         Store::new(paths.clone()).add_specs(&["1.1.1.1:80".to_string(), "2.2.2.2:80".to_string(), "3.3.3.3:80".to_string()]);
         let screen = Screen::with_net(paths, Arc::new(FakeNet));
         let term = FakeTerminal { keys, drawn: Vec::new(), opened: false, closed: false };

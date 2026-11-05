@@ -2,6 +2,10 @@ use std::path::{Path, PathBuf};
 
 pub const IS_WINDOWS: bool = cfg!(windows);
 
+fn is_root(dir: &Path) -> bool {
+    dir.join("proxies.db").exists() || dir.join("config.ini").exists()
+}
+
 #[derive(Clone, Debug)]
 pub struct Paths {
     pub root: PathBuf,
@@ -33,13 +37,20 @@ impl Paths {
             return Paths::new(PathBuf::from(dir));
         }
         let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-        if cwd.join("config.ini").exists() {
+        if is_root(&cwd) {
             return Paths::new(cwd);
         }
         if let Ok(exe) = std::env::current_exe() {
             let mut dir = exe.parent().map(Path::to_path_buf);
+            if let Some(bin) = &dir {
+                if bin.file_name().and_then(|n| n.to_str()) == Some("bin") {
+                    if let Some(parent) = bin.parent() {
+                        return Paths::new(parent.to_path_buf());
+                    }
+                }
+            }
             while let Some(candidate) = dir {
-                if candidate.join("config.ini").exists() {
+                if is_root(&candidate) {
                     return Paths::new(candidate);
                 }
                 dir = candidate.parent().map(Path::to_path_buf);

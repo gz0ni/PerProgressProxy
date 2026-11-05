@@ -23,6 +23,10 @@ Task checklist. Keep it honest: mark `[x]` only after verification.
 
 ## Done
 
+- [x] Settings in the `settings` table, `config.ini` removed; 95 tests; Windows selftest
+      followed `rot set enabled 1/0` (10.9.9.9 vs direct IP); WSL check passed;
+      the real `config.ini` (`current = 12`) was migrated.
+
 - [x] Proxy list only in SQLite (`proxies.db`); DLL and shim read it directly. 93 tests;
       Windows `inject.exe --selftest` returned the fake exit IP with no txt present;
       WSL `tests/wsl_db_check.sh` followed a live `rot use 1` (10.9.9.9 -> 10.9.9.10).

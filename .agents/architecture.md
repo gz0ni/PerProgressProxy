@@ -11,10 +11,10 @@
 
 ## Data Folder Resolution
 
-- Panel: `PPP_ROOT` -> cwd if it holds `config.ini` -> first parent of the exe
-  that does -> cwd.
+- Panel: `PPP_ROOT` -> cwd if it holds `proxies.db` (or a legacy `config.ini`) ->
+  parent of `bin/` when the exe lives there -> first parent of the exe that does -> cwd.
 - Windows DLL: `PROXYINJECT_DIR` -> its own folder -> parent of its own folder;
-  the first one that contains `config.ini` wins. This keeps `bin/` as the binary
+  the first one that contains `proxies.db` wins. This keeps `bin/` as the binary
   location and the repository root as the data location.
 - POSIX shim: same chain, with `dladdr` used for its own folder.
 
@@ -28,10 +28,11 @@
 
 ### `store.rs`
 
-- `Store` owns `config.ini` (in-place key updates, comments preserved) and the
-  proxy list: SQLite `proxies.db` (rusqlite, bundled), tables `proxies(id, text)`
-  and `meta`. The DB is created on first use and recreated empty if deleted.
-  A legacy `proxies.txt` is imported once (`meta.migrated`) and then deleted.
+- `Store` owns everything persistent in SQLite `proxies.db` (rusqlite, bundled):
+  `proxies(id, text)`, `settings(key, value)` and `meta`. The DB is created on
+  first use and recreated empty if deleted; defaults are seeded into `settings`.
+  A legacy `proxies.txt` / `config.ini` is imported once (`meta.migrated`,
+  `meta.settings_seeded`) and then deleted.
   The journal mode stays DELETE (not WAL) so the file signature changes on
   every write; the DLL/shim reload on that signature.
 - `sync_proxy_dir()` scans `proxy/*.txt`, parses every token, deduplicates by
@@ -82,7 +83,7 @@
   keeps the original resolvers callable.
 - Hooks `connect`, `WSAConnect`, `sendto`, `WSASendTo`, the four resolvers, and
   `ConnectEx` through the `WSAIoctl` import slot.
-- Watches `config.ini` / `proxies.db` signatures every 400 ms and drops live
+- Watches the `proxies.db` signature every 400 ms and drops live
   sockets on rotation.
 - Writes `state/<pid>.txt` with `pid`, `exe`, `current`, `proxies`, `enabled`,
   `rotated_ms`.
@@ -92,7 +93,7 @@
 - Hooks `connect()` and `getaddrinfo()` with `dlsym(RTLD_NEXT, ...)`; no inline
   patching, so it works on any architecture the loader supports.
 - Resolves the repository folder from `PROXYINJECT_DIR` or its own `dladdr` path,
-  then reads the same `config.ini` / `proxies.db`.
+  then reads the same `proxies.db`.
 - Turns the app's socket into the socket to the proxy with `dup2`, so the app's
   `getpeername()` reports the proxy.
 - Same file layouts: `state/<pid>.txt`, `logs/<pid>.log`.
@@ -107,7 +108,7 @@
 
 ```
 proxy/*.txt --(sync_proxy_dir)--> proxies.db --+
-config.ini ------------------------------------+--> injected process --> proxy
+rot set / config (settings table) -------------+--> injected process --> proxy
 state/<pid>.txt <------- DLL ------------------+--> processes --> UI
 ```
 

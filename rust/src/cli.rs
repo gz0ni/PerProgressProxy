@@ -110,6 +110,43 @@ pub enum Cmd {
         #[arg(long)]
         credentialed: bool,
     },
+    /// show every setting (stored in the database)
+    Config,
+    /// change one setting, e.g. `rot set fail_closed 0`
+    Set { key: String, value: String },
+}
+
+fn cmd_config(paths: &Paths) -> i32 {
+    let cfg = Store::new(paths.clone()).read_config();
+    let mut keys: Vec<&String> = cfg.keys().collect();
+    keys.sort();
+    for key in keys {
+        println!("{:<16} {}", key, cfg[key]);
+    }
+    0
+}
+
+fn cmd_set(paths: &Paths, key: &str, value: &str) -> i32 {
+    let key = key.to_lowercase();
+    if !crate::store::is_known_setting(&key) {
+        let names: Vec<&str> = crate::store::DEFAULT_SETTINGS.iter().map(|(name, _)| *name).collect();
+        eprintln!("unknown setting '{}'; known: {}", key, names.join(", "));
+        return 1;
+    }
+    if value.trim().is_empty() || value.contains('\n') {
+        eprintln!("bad value");
+        return 1;
+    }
+    match Store::new(paths.clone()).set_config(&[(key.as_str(), value.trim().to_string())]) {
+        Ok(()) => {
+            println!("{} = {}", key, value.trim());
+            0
+        }
+        Err(e) => {
+            eprintln!("cannot save: {}", e);
+            1
+        }
+    }
 }
 
 fn cmd_raw(paths: &Paths, credentialed: bool) -> i32 {
@@ -479,7 +516,6 @@ pub fn cmd_doctor(paths: &Paths) -> i32 {
     );
     println!("dll           {}", exists_or_missing(&paths.dll()));
     println!("injector      {}", exists_or_missing(&paths.inject()));
-    println!("config        {}", present(&paths.config));
     println!("database      {}", present(&paths.db));
     println!("proxy folder  {}", present(&paths.proxy_dir));
     println!("state folder  {}", present(&paths.state_dir));
@@ -572,5 +608,7 @@ pub fn dispatch(paths: &Paths, cmd: Cmd) -> i32 {
         Cmd::Attach { target } => cmd_attach(paths, &target),
         Cmd::Kill { pid } => cmd_kill(paths, pid),
         Cmd::Raw { credentialed } => cmd_raw(paths, credentialed),
+        Cmd::Config => cmd_config(paths),
+        Cmd::Set { key, value } => cmd_set(paths, &key, &value),
     }
 }

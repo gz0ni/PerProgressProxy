@@ -11,8 +11,9 @@
  *   DYLD_INSERT_LIBRARIES=/path/proxyinject.dylib PROXYINJECT_DIR=/path app [args]
  *
  * Files, shared with the Windows build:
- *   config.ini        behaviour, re-read on change
- *   proxies.db        SQLite database, table proxies(id, text), read-only here
+ *   proxies.db        SQLite database, read-only here, re-read on change:
+ *                     table proxies(id, text) is the list,
+ *                     table settings(key, value) is the behaviour
  *   state/<pid>.txt   what this process applies
  *   logs/<pid>.log    event log
  *
@@ -100,7 +101,7 @@ static char g_logpath[MAX_DIR + 32];
 static pid_t g_pid = 0;
 static uint64_t g_last_rotate = 0;
 static uint64_t g_last_check = 0;
-static unsigned long g_sig_cfg = 0, g_sig_px = 0;
+static unsigned long g_sig_px = 0;
 
 static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t g_loglock = PTHREAD_MUTEX_INITIALIZER;
@@ -262,11 +263,51 @@ static int parse_proxy_spec(const char *raw, Proxy *out)
 
 /* ---------------------------------------------------------------- config --- */
 
+static int g_cfg_load_failed = 0;
+
+/* Renders table settings(key, value) as "key=value" lines.
+ * Returns the length, -1 when missing or empty, -2 when the database is busy. */
+static int read_settings_db(char *buf, int cap)
+{
+  char path[MAX_DIR + 32];
+  snprintf(path, sizeof(path), "%s/proxies.db", g_dir);
+
+  sqlite3 *db = NULL;
+  if (sqlite3_open_v2(path, &db, SQLITE_OPEN_READONLY, NULL) != SQLITE_OK) {
+    if (db) sqlite3_close(db);
+    return -1;
+  }
+  sqlite3_busy_timeout(db, 300);
+
+  sqlite3_stmt *st = NULL;
+  if (sqlite3_prepare_v2(db, "SELECT key, value FROM settings", -1, &st, NULL) != SQLITE_OK) {
+    int busy = sqlite3_errcode(db) == SQLITE_BUSY || sqlite3_errcode(db) == SQLITE_LOCKED;
+    sqlite3_close(db);
+    return busy ? -2 : -1;
+  }
+
+  int total = 0, rc;
+  while ((rc = sqlite3_step(st)) == SQLITE_ROW) {
+    const char *k = (const char *)sqlite3_column_text(st, 0);
+    const char *v = (const char *)sqlite3_column_text(st, 1);
+    if (!k || !v) continue;
+    int w = snprintf(buf + total, (size_t)(cap - total), "%s=%s\n", k, v);
+    if (w < 0 || total + w >= cap - 1) break;
+    total += w;
+  }
+  buf[total] = 0;
+  sqlite3_finalize(st);
+  sqlite3_close(db);
+  if (rc != SQLITE_ROW && rc != SQLITE_DONE) return -2;
+  return total > 0 ? total : -1;
+}
+
 static void load_config_locked(void)
 {
-  char path[MAX_DIR + 32], buf[8192];
-  snprintf(path, sizeof(path), "%s/config.ini", g_dir);
-  if (read_file(path, buf, sizeof(buf)) <= 0) return;
+  char buf[8192];
+  int n = read_settings_db(buf, sizeof(buf));
+  g_cfg_load_failed = (n == -2);
+  if (n <= 0) return;
 
   char *line = buf;
   while (line && *line) {
@@ -367,18 +408,16 @@ static void reload_if_changed(void)
   if (t - g_last_check < 400) return;
   g_last_check = t;
 
-  char cfg[MAX_DIR + 32], pxf[MAX_DIR + 32];
-  snprintf(cfg, sizeof(cfg), "%s/config.ini", g_dir);
+  char pxf[MAX_DIR + 32];
   snprintf(pxf, sizeof(pxf), "%s/proxies.db", g_dir);
-  unsigned long sc = file_sig(cfg), sp = file_sig(pxf);
-  if (sc == g_sig_cfg && sp == g_sig_px) return;
+  unsigned long sp = file_sig(pxf);
+  if (sp == g_sig_px) return;
 
   pthread_mutex_lock(&g_lock);
-  g_sig_cfg = sc;
   g_sig_px = sp;
   load_config_locked();
   load_proxies_locked();
-  if (g_px_load_failed) g_sig_px = 0;
+  if (g_px_load_failed || g_cfg_load_failed) g_sig_px = 0;
   pthread_mutex_unlock(&g_lock);
   write_state();
 }
@@ -906,7 +945,7 @@ static int has_config(const char *dir)
 {
   char path[MAX_DIR + 32];
   struct stat st;
-  snprintf(path, sizeof(path), "%s/config.ini", dir);
+  snprintf(path, sizeof(path), "%s/proxies.db", dir);
   return stat(path, &st) == 0 && !S_ISDIR(st.st_mode);
 }
 
@@ -976,10 +1015,8 @@ __attribute__((constructor)) static void bootstrap(void)
   const char *logenv = getenv("PROXYINJECT_LOG");
   if (logenv && logenv[0]) g_log_on = atoi(logenv) != 0;
 
-  char cfg[MAX_DIR + 32], pxf[MAX_DIR + 32];
-  snprintf(cfg, sizeof(cfg), "%s/config.ini", g_dir);
+  char pxf[MAX_DIR + 32];
   snprintf(pxf, sizeof(pxf), "%s/proxies.db", g_dir);
-  g_sig_cfg = file_sig(cfg);
   g_sig_px = file_sig(pxf);
   g_last_check = now_ms();
   g_last_rotate = now_ms();

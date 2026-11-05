@@ -10,6 +10,24 @@ use crate::specs::{parse_spec, split_tokens, Proxy};
 
 pub type Config = HashMap<String, String>;
 
+pub const DEFAULT_SETTINGS: [(&str, &str); 11] = [
+    ("enabled", "0"),
+    ("fail_closed", "1"),
+    ("block_udp", "1"),
+    ("allow_dns_udp", "1"),
+    ("rotate_sec", "0"),
+    ("retry_next", "1"),
+    ("timeout_ms", "10000"),
+    ("hook_connectex", "1"),
+    ("default_scheme", "auto"),
+    ("current", "0"),
+    ("log", "1"),
+];
+
+pub fn is_known_setting(key: &str) -> bool {
+    DEFAULT_SETTINGS.iter().any(|(name, _)| *name == key)
+}
+
 #[derive(Debug, Clone)]
 pub struct ProxyLine {
     pub text: String,
@@ -52,40 +70,64 @@ impl Store {
 
     pub fn read_config(&self) -> Config {
         let mut out = Config::new();
-        let Some(text) = read_text_lossy(&self.paths.config) else {
+        let Ok(conn) = self.open_db() else {
             return out;
         };
-        for line in text.lines() {
-            let line = line.trim();
-            if is_comment_line(line) || line.starts_with('=') {
-                continue;
-            }
-            if let Some((key, val)) = line.split_once('=') {
-                out.insert(key.trim().to_lowercase(), val.trim().to_string());
+        let Ok(mut stmt) = conn.prepare("SELECT key, value FROM settings") else {
+            return out;
+        };
+        if let Ok(rows) = stmt.query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))) {
+            for (key, value) in rows.flatten() {
+                out.insert(key, value);
             }
         }
         out
     }
 
     pub fn set_config(&self, pairs: &[(&str, String)]) -> std::io::Result<()> {
-        let text = read_text_lossy(&self.paths.config).unwrap_or_default();
-        let mut lines: Vec<String> = text.lines().map(str::to_string).collect();
-        for (key, val) in pairs {
-            let wanted = key.to_lowercase();
-            let hit = lines.iter().position(|line| {
-                line.trim_start()
-                    .to_lowercase()
-                    .strip_prefix(&wanted)
-                    .map(|tail| tail.trim_start().starts_with('='))
-                    .unwrap_or(false)
-            });
-            let replacement = format!("{} = {}", key, val);
-            match hit {
-                Some(i) => lines[i] = replacement,
-                None => lines.push(replacement),
+        let conn = self.open_db().map_err(std::io::Error::other)?;
+        for (key, value) in pairs {
+            Self::put_setting(&conn, &key.to_lowercase(), value).map_err(std::io::Error::other)?;
+        }
+        Ok(())
+    }
+
+    fn put_setting(conn: &Connection, key: &str, value: &str) -> rusqlite::Result<()> {
+        conn.execute(
+            "INSERT INTO settings (key, value) VALUES (?1, ?2)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            [key, value],
+        )
+        .map(|_| ())
+    }
+
+    fn ensure_settings(&self, conn: &Connection) {
+        if Self::meta_get(conn, "settings_seeded").is_some() {
+            return;
+        }
+        let legacy = read_text_lossy(&self.paths.config);
+        let mut ok = true;
+        if let Some(text) = &legacy {
+            for line in text.lines() {
+                let line = line.trim();
+                if is_comment_line(line) || line.starts_with('=') {
+                    continue;
+                }
+                if let Some((key, value)) = line.split_once('=') {
+                    ok &= Self::put_setting(conn, &key.trim().to_lowercase(), value.trim()).is_ok();
+                }
             }
         }
-        fs::write(&self.paths.config, lines.join("\n") + "\n")
+        for (key, value) in DEFAULT_SETTINGS {
+            ok &= conn
+                .execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?1, ?2)", [key, value])
+                .is_ok();
+        }
+        if ok && conn.execute("INSERT OR REPLACE INTO meta (key, value) VALUES ('settings_seeded', '1')", []).is_ok() {
+            if legacy.is_some() {
+                let _ = fs::remove_file(&self.paths.config);
+            }
+        }
     }
 
     pub fn default_scheme(&self) -> String {
@@ -97,8 +139,10 @@ impl Store {
         conn.busy_timeout(Duration::from_secs(3))?;
         conn.execute_batch(
             "CREATE TABLE IF NOT EXISTS proxies (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT NOT NULL);
+             CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
              CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);",
         )?;
+        self.ensure_settings(&conn);
         Ok(conn)
     }
 
@@ -348,13 +392,35 @@ pub mod tests {
     }
 
     #[test]
-    fn set_config_updates_in_place_and_appends() {
+    fn settings_get_defaults_and_updates() {
         let store = temp_store("cfg");
-        fs::write(&store.paths.config, "# note\nEnabled = 0\ncurrent = 2\n").unwrap();
-        store.set_config(&[("enabled", "1".to_string()), ("rotate_sec", "30".to_string())]).unwrap();
-        let text = fs::read_to_string(&store.paths.config).unwrap();
-        assert_eq!(text, "# note\nenabled = 1\ncurrent = 2\nrotate_sec = 30\n");
-        assert_eq!(store.read_config().get("rotate_sec").map(String::as_str), Some("30"));
+        let cfg = store.read_config();
+        assert_eq!(cfg.len(), DEFAULT_SETTINGS.len());
+        assert_eq!(cfg.get("fail_closed").map(String::as_str), Some("1"));
+        store.set_config(&[("Enabled", "1".to_string()), ("rotate_sec", "30".to_string())]).unwrap();
+        let cfg = store.read_config();
+        assert_eq!(cfg.get("enabled").map(String::as_str), Some("1"));
+        assert_eq!(cfg.get("rotate_sec").map(String::as_str), Some("30"));
+        assert!(!store.paths.config.exists());
+    }
+
+    #[test]
+    fn legacy_config_ini_is_imported_once_and_removed() {
+        let store = temp_store("cfgmigrate");
+        fs::write(&store.paths.config, "# note\nEnabled = 1\ncurrent = 12\n").unwrap();
+        let cfg = store.read_config();
+        assert_eq!(cfg.get("enabled").map(String::as_str), Some("1"));
+        assert_eq!(cfg.get("current").map(String::as_str), Some("12"));
+        assert_eq!(cfg.get("timeout_ms").map(String::as_str), Some("10000"));
+        assert!(!store.paths.config.exists());
+        fs::write(&store.paths.config, "enabled = 0\n").unwrap();
+        assert_eq!(store.read_config().get("enabled").map(String::as_str), Some("1"));
+    }
+
+    #[test]
+    fn known_settings() {
+        assert!(is_known_setting("fail_closed"));
+        assert!(!is_known_setting("fail_close"));
     }
 
     #[test]

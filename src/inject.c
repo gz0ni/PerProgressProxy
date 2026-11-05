@@ -294,7 +294,7 @@ static int selftest(const char *proxy, const char *url)
 
     char body[4096];
     int rc = http_get_via_dll(url, body, sizeof(body));
-    printf("proxy=%s\n", proxy && proxy[0] ? proxy : "(config.ini)");
+    printf("proxy=%s\n", proxy && proxy[0] ? proxy : "(proxies.db)");
     printf("elapsed=%lums\n", (unsigned long)(GetTickCount() - before));
     if (rc == 0) {
         printf("exit_ip=%s\n", body);

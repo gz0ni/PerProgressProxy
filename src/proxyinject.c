@@ -16,8 +16,8 @@
  *   - Upstream connects use the real mswsock ConnectEx captured at init.
  *
  * Config (next to this DLL):
- *   config.ini    behaviour
- *   proxies.db    SQLite database, table proxies(id, text); opened read-only
+ *   proxies.db    SQLite database, opened read-only: table proxies(id, text)
+ *                 is the list, table settings(key, value) is the behaviour
  *   state.txt     runtime state, written by the DLL
  *   logs\PID.log  per-process event log
  */
@@ -88,7 +88,7 @@ static int g_cs_ok = 0, g_logcs_ok = 0;
 static LONG  g_ready = 0;
 static DWORD g_last_rotate = 0;
 static DWORD g_last_reload_check = 0;
-static uint64_t g_sig_cfg = 0, g_sig_px = 0;
+static uint64_t g_sig_px = 0;
 static DWORD g_pid = 0;
 
 static PFN_CONNECTEX g_connectex = NULL;
@@ -561,7 +561,7 @@ static int g_px_load_failed = 0;
 
 /* Joins every row of proxies.db into one newline-separated string.
  * Returns the length, -1 when the database is missing, -2 when it is busy. */
-static int read_proxy_db(char *buf, int cap)
+static int open_db_ro(sqlite3 **out)
 {
     wchar_t wpath[MAX_PATH];
     char path[MAX_PATH * 3];
@@ -576,6 +576,46 @@ static int read_proxy_db(char *buf, int cap)
         return -1;
     }
     sqlite3_busy_timeout(db, 300);
+    *out = db;
+    return 0;
+}
+
+static int g_cfg_load_failed = 0;
+
+/* Renders table settings(key, value) as "key=value" lines for ini_get().
+ * Returns the length, -1 when missing or empty, -2 when the database is busy. */
+static int read_settings_db(char *buf, int cap)
+{
+    sqlite3 *db = NULL;
+    if (open_db_ro(&db) != 0) return -1;
+
+    sqlite3_stmt *st = NULL;
+    if (sqlite3_prepare_v2(db, "SELECT key, value FROM settings", -1, &st, NULL) != SQLITE_OK) {
+        int busy = sqlite3_errcode(db) == SQLITE_BUSY || sqlite3_errcode(db) == SQLITE_LOCKED;
+        sqlite3_close(db);
+        return busy ? -2 : -1;
+    }
+
+    int total = 0, rc;
+    while ((rc = sqlite3_step(st)) == SQLITE_ROW) {
+        const char *k = (const char *)sqlite3_column_text(st, 0);
+        const char *v = (const char *)sqlite3_column_text(st, 1);
+        if (!k || !v) continue;
+        int w = _snprintf(buf + total, (size_t)(cap - total - 1), "%s=%s\n", k, v);
+        if (w < 0 || total + w >= cap - 1) break;
+        total += w;
+    }
+    buf[total] = 0;
+    sqlite3_finalize(st);
+    sqlite3_close(db);
+    if (rc != SQLITE_ROW && rc != SQLITE_DONE) return -2;
+    return total > 0 ? total : -1;
+}
+
+static int read_proxy_db(char *buf, int cap)
+{
+    sqlite3 *db = NULL;
+    if (open_db_ro(&db) != 0) return -1;
 
     sqlite3_stmt *st = NULL;
     if (sqlite3_prepare_v2(db, "SELECT text FROM proxies ORDER BY id", -1, &st, NULL) != SQLITE_OK) {
@@ -624,12 +664,9 @@ static void load_proxies_locked(void)
 
 static void load_config_locked(int first)
 {
-    wchar_t path[MAX_PATH];
-    _snwprintf(path, MAX_PATH - 1, L"%ls\\config.ini", g_dirw);
-    path[MAX_PATH - 1] = 0;
-
     static char buf[64 * 1024];
-    int n = read_file_utf8(path, buf, sizeof(buf));
+    int n = read_settings_db(buf, sizeof(buf));
+    g_cfg_load_failed = (n == -2);
     LONG old_cur = g_cur;
 
     if (n > 0) {
@@ -679,20 +716,17 @@ static void maybe_reload(void)
     if ((DWORD)(now - g_last_reload_check) < 400) return;
     g_last_reload_check = now;
 
-    wchar_t cfg[MAX_PATH], pxf[MAX_PATH];
-    _snwprintf(cfg, MAX_PATH - 1, L"%ls\\config.ini", g_dirw);
-    cfg[MAX_PATH - 1] = 0;
+    wchar_t pxf[MAX_PATH];
     _snwprintf(pxf, MAX_PATH - 1, L"%ls\\proxies.db", g_dirw);
     pxf[MAX_PATH - 1] = 0;
 
-    uint64_t sc = file_sig(cfg), sp = file_sig(pxf);
-    if (sc == g_sig_cfg && sp == g_sig_px) return;
+    uint64_t sp = file_sig(pxf);
+    if (sp == g_sig_px) return;
 
     EnterCriticalSection(&g_cs);
-    g_sig_cfg = sc;
     g_sig_px = sp;
     load_config_locked(0);
-    if (g_px_load_failed) g_sig_px = 0;
+    if (g_px_load_failed || g_cfg_load_failed) g_sig_px = 0;
     LeaveCriticalSection(&g_cs);
 }
 
@@ -1750,7 +1784,7 @@ static int load_clean_ws2(void)
 static int has_config_w(const wchar_t *dir)
 {
     wchar_t p[MAX_PATH];
-    _snwprintf(p, MAX_PATH - 1, L"%ls\\config.ini", dir);
+    _snwprintf(p, MAX_PATH - 1, L"%ls\\proxies.db", dir);
     p[MAX_PATH - 1] = 0;
     DWORD a = GetFileAttributesW(p);
     return a != INVALID_FILE_ATTRIBUTES && !(a & FILE_ATTRIBUTE_DIRECTORY);
@@ -1839,12 +1873,9 @@ static DWORD WINAPI worker(LPVOID param)
     LeaveCriticalSection(&g_cs);
 
     {   /* baseline signatures so the first connect does not trigger a reload */
-        wchar_t cfgp[MAX_PATH], pxp[MAX_PATH];
-        _snwprintf(cfgp, MAX_PATH - 1, L"%ls\\config.ini", g_dirw);
-        cfgp[MAX_PATH - 1] = 0;
+        wchar_t pxp[MAX_PATH];
         _snwprintf(pxp, MAX_PATH - 1, L"%ls\\proxies.db", g_dirw);
         pxp[MAX_PATH - 1] = 0;
-        g_sig_cfg = file_sig(cfgp);
         g_sig_px = file_sig(pxp);
         g_last_reload_check = GetTickCount();
     }

@@ -42,7 +42,8 @@ Implementation: a C shim (`src/proxyinject.c`) plus a small C injector
 The proxy list lives in an embedded SQLite file `proxies.db` (created on first
 run, recreated empty if deleted). The panel writes it; the injected DLL/shim
 open it read-only (SQLite is compiled into them, symbols hidden). Everything
-else is plain files: `config.ini`, `state/<pid>.txt`, `logs/<pid>.log`.
+else is plain files: `state/<pid>.txt`, `logs/<pid>.log`. Settings are the
+`settings` table of the same database (no `config.ini`).
 No IPC, no daemon, no database server.
 
 ## Status

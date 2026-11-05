@@ -18,8 +18,8 @@
 
 ## Design
 
-- Contract with the C side: `config.ini`, `proxies.db` (table `proxies(id,
-  text)`, read-only for C, journal mode DELETE), `state/`, `logs/`. Do not add
+- Contract with the C side: `proxies.db` (tables `proxies(id, text)` and
+  `settings(key, value)`, read-only for C, journal mode DELETE), `state/`, `logs/`. Do not add
   IPC, services, or a database server.
 - The interactive console is a hand-rolled TUI: raw console/termios input plus
   ANSI output, no ratatui/crossterm. Rendering is a pure function over a
@@ -30,7 +30,7 @@
 ## State and Persistence
 
 - Only the DLL writes `state/<pid>.txt` and `logs/<pid>.log`.
-- Only `Store` (`rust/src/store.rs`) writes `config.ini` and `proxies.db`.
+- Only `Store` (`rust/src/store.rs`) writes `proxies.db`.
 - `state/` and `logs/` are disposable: deleting them must never break settings.
 
 ## Testing

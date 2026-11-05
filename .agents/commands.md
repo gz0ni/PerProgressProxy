@@ -33,7 +33,8 @@ overwrote `bin/rot.exe` once.
 `run.cmd` starts `bin\rot.exe`, else `rust\target\release\rot.exe`, and logs every
 launch to `logs\launcher.log`; panics land in `logs\ui-crash.log`.
 `rot --help` lists every subcommand. `PPP_ROOT` overrides the data folder
-(default: cwd, else the first parent of the exe holding `config.ini`).
+(default: cwd, else the first parent of the exe holding `proxies.db`).
+`rot config` / `rot set <key> <value>` show and change the settings.
 
 ```sh
 ./run.sh                  # Linux/macOS launcher (POSIX backend not ready yet)
