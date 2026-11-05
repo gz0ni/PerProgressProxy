@@ -31,7 +31,7 @@ Read when the task touches the area:
 - Keep changes minimal; follow existing patterns; no comments unless requested.
 - Never edit `proxyinject.dll` / `inject.exe` by hand - rebuild from `src/`.
 - Do not commit, push, or create PRs without an explicit user request.
-- Never print or commit proxy credentials from `proxy/*` or `proxies.txt`.
+- Never print or commit proxy credentials from `proxy/*` or `proxies.db`.
 
 ## Maintenance Duties
 

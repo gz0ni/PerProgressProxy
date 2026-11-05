@@ -4,7 +4,10 @@ Task checklist. Keep it honest: mark `[x]` only after verification.
 
 ## Open
 
-- [ ] Manual TUI check on Windows Terminal: scroll a long `proxies.txt`, `v`
+- [ ] Rust port: manual TUI pass on Windows Terminal; interactive TUI on Linux
+      (only `rot status` / `--version` were run, in WSL); macOS binary needs a
+      Mac (`cargo build --release` there).
+- [ ] Manual TUI check on Windows Terminal: scroll a long proxy list, `v`
       paste (lines and a list URL), background `t` test, window resize.
 - [ ] Manual attach-modal check: `a`, hold arrows, move the mouse, switch layout
       with Alt+Shift - the modal must stay open; `/` filter, `Esc` closes once.
@@ -20,13 +23,21 @@ Task checklist. Keep it honest: mark `[x]` only after verification.
 
 ## Done
 
+- [x] Proxy list only in SQLite (`proxies.db`); DLL and shim read it directly. 93 tests;
+      Windows `inject.exe --selftest` returned the fake exit IP with no txt present;
+      WSL `tests/wsl_db_check.sh` followed a live `rot use 1` (10.9.9.9 -> 10.9.9.10).
+
+- [x] Python -> Rust port of the control panel (`rust/`): 89 unit tests pass;
+      `list`/`status` output identical to Python on real data; `test` verified
+      against `tests/testsocks.py`; TUI render checked in a terminal tab.
+
 - [x] Windows TUI input via console records: Alt+Shift / mouse / focus no longer
       close modals; `Esc` in attach clears typed text first, then closes.
       Verified by `tests/test_tui_windows.py`.
 
 - [x] Interactive console rework: stdlib TUI (`ppp/tui/`) with hotkeys, modals
       (paste proxies / list URL, attach, launch, rotation, confirm, help),
-      scrollable viewport and filters. Old console kept as `rot.py console`.
+      scrollable viewport and filters. Old console kept as `rot console`.
       Verified by `tests/test_tui_keys.py` + `tests/test_tui_view.py`.
 - [x] Binaries moved to `bin/`; DLL/shim resolve the data folder via
       `PROXYINJECT_DIR` -> own folder -> parent. Root cleaned, `.gitignore` added.
@@ -38,6 +49,6 @@ Task checklist. Keep it honest: mark `[x]` only after verification.
 - [x] `host:port:user:pass` parsing + unit test.
 - [x] `proxy/*.txt` auto-import into `proxies.txt`.
 - [x] `state/<pid>.txt` written by the DLL, liveness shown in the console.
-- [x] Interactive console (`python rot.py`, `run.cmd`, `run.sh`).
+- [x] Interactive console (`rot`, `run.cmd`, `run.sh`).
 - [x] `run.cmd` and `run.sh` launchers.
 - [x] Windows launch/attach/kill verified with `notepad.exe` and `inject.exe --selftest`.

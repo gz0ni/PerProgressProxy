@@ -8,3 +8,6 @@ logs/
 proxies.txt
 proxy/*.txt
 .tools/
+rust/target/
+proxies.db
+proxies.db-journal

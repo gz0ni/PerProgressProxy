@@ -2,66 +2,77 @@
 
 ## Entry Point
 
-- `run.cmd` / `run.sh` - launchers, call `rot.py` with the current directory set
-  to the repository root.
-- `rot.py` - thin wrapper over `ppp.cli.main`. No arguments starts the
-  interactive console (`ppp.tui` on a TTY, `ppp.ui` otherwise).
-- `bin/` - build output: `inject.exe`, `proxyinject.dll`, `proxyinject.so`,
-  `proxyinject.dylib`.
+- `run.cmd` / `run.sh` - launchers, start `bin/rot` or `rust/target/release/rot`
+  with the current directory set to the repository root.
+- `rust/` - the control panel crate (binary `rot`). No arguments starts the
+  interactive console (`tui` on a TTY, a hint and exit code 2 otherwise).
+- `bin/` - build output of the C parts: `inject.exe`, `proxyinject.dll`,
+  `proxyinject.so`, `proxyinject.dylib`.
 
 ## Data Folder Resolution
 
+- Panel: `PPP_ROOT` -> cwd if it holds `config.ini` -> first parent of the exe
+  that does -> cwd.
 - Windows DLL: `PROXYINJECT_DIR` -> its own folder -> parent of its own folder;
   the first one that contains `config.ini` wins. This keeps `bin/` as the binary
   location and the repository root as the data location.
 - POSIX shim: same chain, with `dladdr` used for its own folder.
 
-## Core Layer
+## Core Layer (`rust/src/`)
 
-### `ppp/specs.py`
+### `specs.rs`
 
 - One parser for every proxy line format: URL, `host:port`, `host:port:user:pass`.
 - Must stay in sync with `parse_proxy_spec()` in `src/proxyinject.c`; when the C
-  side changes, change this file and `tests/test_specs.py` too.
+  side changes, change this file and its tests too.
 
-### `ppp/store.py`
+### `store.rs`
 
-- Owns `config.ini` (in-place key updates, comments preserved) and
-  `proxies.txt` (canonical list the DLL reads).
+- `Store` owns `config.ini` (in-place key updates, comments preserved) and the
+  proxy list: SQLite `proxies.db` (rusqlite, bundled), tables `proxies(id, text)`
+  and `meta`. The DB is created on first use and recreated empty if deleted.
+  A legacy `proxies.txt` is imported once (`meta.migrated`) and then deleted.
+  The journal mode stays DELETE (not WAL) so the file signature changes on
+  every write; the DLL/shim reload on that signature.
 - `sync_proxy_dir()` scans `proxy/*.txt`, parses every token, deduplicates by
   canonical label and appends the new ones.
 
-### `ppp/processes.py`
+### `processes.rs`
 
 - Reads `state/<pid>.txt` written by the DLL, reports liveness and image name,
-  kills a target, removes stale state files.
-- Handles the legacy layout: `state_<pid>.txt` in the root is migrated into
-  `state/` on startup.
-- Windows liveness via `OpenProcess` + `GetExitCodeProcess`; POSIX via
-  `os.kill(pid, 0)`.
+  kills a target, removes stale state files; migrates legacy `state_<pid>.txt`.
+- Windows liveness via `OpenProcess` + `GetExitCodeProcess`; POSIX via `kill(pid, 0)`.
 
-### `ppp/platform.py`
+### `backend.rs`
 
 - Injection backend. Windows shells out to `inject.exe`
   (`--launch` / `--name` / `--pid` / `--list`).
 - POSIX starts the target with `LD_PRELOAD` / `DYLD_INSERT_LIBRARIES` plus
-  `PROXYINJECT_DIR`; attaching to a running process raises `UnsupportedPlatform`.
+  `PROXYINJECT_DIR`; attaching to a running process returns an error.
 
-### `ppp/tui/`
+### `netcheck.rs`
 
-- Interactive console: `term.py` (raw input/size/ANSI), `view.py` (pure render
-  of a `ViewState`: header, scrollable proxy viewport, process list, footer,
-  modal overlays), `model.py` (`Screen` snapshot, filters, selection, background
-  `TestRun`), `app.py` (main loop, hotkeys, modals).
-- Never writes files directly: all mutations go through `ppp.store`,
-  `ppp.processes`, `ppp.platform`.
-- `v` accepts proxy lines and `http(s)` list URLs (stdlib `urllib`, 5 MB cap);
-  downloads run in a thread and report through `Screen.notice`.
+- SOCKS5 / SOCKS4 / HTTP CONNECT handshakes to the echo host, worker pool,
+  `state/health.json` load/save.
 
-### `ppp/ui.py`
+### `cli.rs`, `main.rs`
 
-- The older command-driven console, kept for scripts and muscle memory
-  (`python rot.py console`). Redraws after every typed command.
+- clap subcommands; `main` catches panics, logs them to `logs/ui-crash.log`.
+  Only these handlers and `tui` mutate files, through `Store` / `processes`.
+
+### `tui/`
+
+- `term.rs` (raw input, `ReadConsoleInputW` on Windows, termios on POSIX, key
+  decoding as pure functions), `view.rs` (pure render of a `ViewState`),
+  `model.rs` (`Screen` snapshot, filters, selection, background `TestRun`),
+  `app.rs` (main loop, hotkeys, modals; generic over the `Term` trait so tests
+  use a fake terminal).
+- `v` accepts proxy lines and `http(s)` list URLs (ureq, 5 MB cap); downloads run
+  in a thread and report through `Screen.notice`.
+
+### `ui.rs`
+
+- The older command-driven console (`rot console`). Redraws after every command.
 
 ## Feature Layer
 
@@ -71,7 +82,7 @@
   keeps the original resolvers callable.
 - Hooks `connect`, `WSAConnect`, `sendto`, `WSASendTo`, the four resolvers, and
   `ConnectEx` through the `WSAIoctl` import slot.
-- Watches `config.ini` / `proxies.txt` signatures every 400 ms and drops live
+- Watches `config.ini` / `proxies.db` signatures every 400 ms and drops live
   sockets on rotation.
 - Writes `state/<pid>.txt` with `pid`, `exe`, `current`, `proxies`, `enabled`,
   `rotated_ms`.
@@ -81,7 +92,7 @@
 - Hooks `connect()` and `getaddrinfo()` with `dlsym(RTLD_NEXT, ...)`; no inline
   patching, so it works on any architecture the loader supports.
 - Resolves the repository folder from `PROXYINJECT_DIR` or its own `dladdr` path,
-  then reads the same `config.ini` / `proxies.txt`.
+  then reads the same `config.ini` / `proxies.db`.
 - Turns the app's socket into the socket to the proxy with `dup2`, so the app's
   `getpeername()` reports the proxy.
 - Same file layouts: `state/<pid>.txt`, `logs/<pid>.log`.
@@ -95,9 +106,9 @@
 ## Data Flow
 
 ```
-proxy/*.txt --(sync_proxy_dir)--> proxies.txt --+
+proxy/*.txt --(sync_proxy_dir)--> proxies.db --+
 config.ini ------------------------------------+--> injected process --> proxy
-state/<pid>.txt <------- DLL ------------------+--> ppp.processes --> UI
+state/<pid>.txt <------- DLL ------------------+--> processes --> UI
 ```
 
 ## Known Gaps

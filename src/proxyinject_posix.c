@@ -12,13 +12,15 @@
  *
  * Files, shared with the Windows build:
  *   config.ini        behaviour, re-read on change
- *   proxies.txt       one proxy per line
+ *   proxies.db        SQLite database, table proxies(id, text), read-only here
  *   state/<pid>.txt   what this process applies
  *   logs/<pid>.log    event log
  *
- * Build:
+ * SQLite is compiled in with hidden symbols so it never interposes the
+ * target's own libsqlite3. Build:
  *   zig cc -target x86_64-linux-gnu -O2 -shared -fPIC \
- *     -o proxyinject.so src/proxyinject_posix.c -ldl
+ *     -DSQLITE_API='__attribute__((visibility("hidden")))' -DSQLITE_THREADSAFE=0 \
+ *     -o proxyinject.so src/proxyinject_posix.c src/sqlite/sqlite3.c -ldl
  */
 
 #define _GNU_SOURCE 1
@@ -40,6 +42,7 @@
 #include <strings.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include "sqlite/sqlite3.h"
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
@@ -294,12 +297,54 @@ static void load_config_locked(void)
   if (g_timeout_ms < 500) g_timeout_ms = 500;
 }
 
+static int g_px_load_failed = 0;
+
+/* Joins every row of proxies.db into one newline-separated string.
+ * Returns the length, -1 when the database is missing, -2 when it is busy. */
+static int read_proxy_db(char *buf, int cap)
+{
+  char path[MAX_DIR + 32];
+  snprintf(path, sizeof(path), "%s/proxies.db", g_dir);
+
+  sqlite3 *db = NULL;
+  if (sqlite3_open_v2(path, &db, SQLITE_OPEN_READONLY, NULL) != SQLITE_OK) {
+    if (db) sqlite3_close(db);
+    return -1;
+  }
+  sqlite3_busy_timeout(db, 300);
+
+  sqlite3_stmt *st = NULL;
+  if (sqlite3_prepare_v2(db, "SELECT text FROM proxies ORDER BY id", -1, &st, NULL) != SQLITE_OK) {
+    int busy = sqlite3_errcode(db) == SQLITE_BUSY || sqlite3_errcode(db) == SQLITE_LOCKED;
+    sqlite3_close(db);
+    return busy ? -2 : -1;
+  }
+
+  int total = 0, rc;
+  while ((rc = sqlite3_step(st)) == SQLITE_ROW) {
+    const unsigned char *t = sqlite3_column_text(st, 0);
+    if (!t) continue;
+    int n = (int)strlen((const char *)t);
+    if (total + n + 2 >= cap) break;
+    memcpy(buf + total, t, (size_t)n);
+    total += n;
+    buf[total++] = '\n';
+  }
+  buf[total] = 0;
+  sqlite3_finalize(st);
+  sqlite3_close(db);
+  if (rc != SQLITE_ROW && rc != SQLITE_DONE) return -2;
+  return total;
+}
+
 static void load_proxies_locked(void)
 {
-  char path[MAX_DIR + 32], buf[128 * 1024];
-  snprintf(path, sizeof(path), "%s/proxies.txt", g_dir);
+  static char buf[128 * 1024];
+  int n = read_proxy_db(buf, sizeof(buf));
+  if (n == -2) { g_px_load_failed = 1; return; }
+  g_px_load_failed = 0;
   g_npx = 0;
-  if (read_file(path, buf, sizeof(buf)) <= 0) return;
+  if (n <= 0) return;
 
   char *line = buf;
   while (line && *line && g_npx < MAX_PROXIES) {
@@ -324,7 +369,7 @@ static void reload_if_changed(void)
 
   char cfg[MAX_DIR + 32], pxf[MAX_DIR + 32];
   snprintf(cfg, sizeof(cfg), "%s/config.ini", g_dir);
-  snprintf(pxf, sizeof(pxf), "%s/proxies.txt", g_dir);
+  snprintf(pxf, sizeof(pxf), "%s/proxies.db", g_dir);
   unsigned long sc = file_sig(cfg), sp = file_sig(pxf);
   if (sc == g_sig_cfg && sp == g_sig_px) return;
 
@@ -333,6 +378,7 @@ static void reload_if_changed(void)
   g_sig_px = sp;
   load_config_locked();
   load_proxies_locked();
+  if (g_px_load_failed) g_sig_px = 0;
   pthread_mutex_unlock(&g_lock);
   write_state();
 }
@@ -932,7 +978,7 @@ __attribute__((constructor)) static void bootstrap(void)
 
   char cfg[MAX_DIR + 32], pxf[MAX_DIR + 32];
   snprintf(cfg, sizeof(cfg), "%s/config.ini", g_dir);
-  snprintf(pxf, sizeof(pxf), "%s/proxies.txt", g_dir);
+  snprintf(pxf, sizeof(pxf), "%s/proxies.db", g_dir);
   g_sig_cfg = file_sig(cfg);
   g_sig_px = file_sig(pxf);
   g_last_check = now_ms();

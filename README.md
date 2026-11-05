@@ -13,7 +13,7 @@ required for normal apps.
 app.exe --connect(example.com:443)--> [ proxyinject.dll ] --SOCKS5/HTTP--> 1.2.3.4:1080 --> example.com
 ```
 
-Every change to `proxies.txt` / `config.ini` is picked up by running processes
+Every change to the proxy list (`proxies.db`) / `config.ini` is picked up by running processes
 in under a second, and live sockets are dropped on rotation, so the app shows a
 new exit IP almost immediately - without restarting it.
 
@@ -39,7 +39,7 @@ cd "C:\path\to\PerProcessProxy"
 Linux / macOS launcher exists too (`./run.sh`), but the shim is not built yet -
 see [Platform support](#platform-support).
 
-Drop proxy lists into `proxy/` and they are merged into `proxies.txt`
+Drop proxy lists into `proxy/` and they are merged into the database
 automatically on every start:
 
 ```powershell
@@ -73,20 +73,14 @@ alive (`state/<pid>.txt`).
 
 ## Console
 
-`run.cmd` / `run.sh` / `python rot.py` open the interactive console. It uses a
+`run.cmd` / `run.sh` / `rot` open the interactive console. It uses a
 fixed layout and hotkeys instead of typed commands, and the proxy list lives in
 a scrollable viewport, so a list of hundreds of proxies never floods the screen
 or blocks you from switching, testing or attaching.
 
-`run.cmd` picks the first working interpreter it can find (`PPP_PY_CMD`, the
-official `py.exe` launcher, then `python`/`python3` on `PATH`, skipping the
-`WindowsApps` stubs) and appends every launch to `logs\launcher.log`; crashes are
-written to `logs\ui-crash.log`. To pin a specific interpreter:
-
-```powershell
-set PPP_PY_CMD=C:\path\to\venv\Scripts\python.exe
-.\run.cmd
-```
+`run.cmd` starts `bin\rot.exe` (or `rust\target\release\rot.exe`), built with
+`cd rust && cargo build --release`, and appends every launch to
+`logs\launcher.log`; panics are written to `logs\ui-crash.log`.
 
 ```
  PerProcessProxy   PROXY: ON   #12 1.2.3.4:1080   rotate manual
@@ -121,7 +115,7 @@ Hotkeys work in both layouts (`v` and `м`, `a` and `ф`, ...), so the console
 never needs a keyboard layout switch.
 
 The command-driven console from earlier versions is still available:
-`python rot.py console`.
+`rot console`.
 
 ---
 
@@ -130,8 +124,8 @@ The command-driven console from earlier versions is still available:
 | command | what it does |
 |---|---|
 | `status` | settings, current proxy, injected processes and liveness |
-| `list` | proxies from `proxies.txt`, `*` marks the active one |
-| `sync` / `import` | merge every `proxy/*.txt` into `proxies.txt` |
+| `list` | proxies from the database, `*` marks the active one |
+| `sync` / `import` | merge every `proxy/*.txt` into the database |
 | `add <spec...>` | append proxies (deduplicated) |
 | `import <file>` | import one specific file |
 | `test [--prune] [--concurrency N]` | connect through every proxy, print exit IP + latency, flag ones whose IP equals your own, optionally delete the failures |
@@ -168,7 +162,7 @@ http://user:pass@1.2.3.4:8080
 |---|---|---|
 | `bin/` | build | `inject.exe`, `proxyinject.dll`, `proxyinject.so`, `proxyinject.dylib` |
 | `config.ini` | CLI / you | behaviour, live-reloaded |
-| `proxies.txt` | `ppp.store` | canonical list the DLL reads |
+| `proxies.db` | the panel | SQLite database with the proxy list (table `proxies`); created on first run, recreated empty if deleted. The DLL and the POSIX shim open it read-only |
 | `proxy/*.txt` | you | intake folder, merged on start and by `import` |
 | `state/<pid>.txt` | DLL / shim | pid, exe, current proxy, enabled, last rotation |
 | `state/health.json` | CLI | last test result per proxy |
@@ -199,7 +193,7 @@ working directory even though the DLL is one level down.
 | `timeout_ms` | 10000 | connect + handshake timeout |
 | `hook_connectex` | 1 | also cover apps using async `ConnectEx` (Node/Electron/.NET) |
 | `default_scheme` | auto | scheme for bare `host:port` lines |
-| `current` | 0 | index into `proxies.txt` (managed by `rot.py`) |
+| `current` | 0 | index into the proxy list (managed by `rot`) |
 | `log` | 1 | write `logs\<pid>.log` |
 
 Each injected process also writes `state/<pid>.txt`, which the console uses to
@@ -232,7 +226,7 @@ routing, DNS or adapters.
 | Linux x64 / arm64 | `proxyinject.so` via `LD_PRELOAD` | no (launch only) | ready |
 | macOS arm64 / x64 | `proxyinject.dylib` via `DYLD_INSERT_LIBRARIES` | no (launch only) | built, needs testing |
 
-The POSIX shim uses the same `config.ini`, `proxies.txt`, `state/` and `logs/`,
+The POSIX shim uses the same `config.ini`, `proxies.db`, `state/` and `logs/`,
 so the console and the proxy list are shared. Start a target with:
 
 ```sh
@@ -265,7 +259,7 @@ Known limits on POSIX:
 
 ## Reality check
 
-* **Public proxies are mostly dead.** `python rot.py test --prune` before you
+* **Public proxies are mostly dead.** `rot test --prune` before you
   rely on a list. In Russia many proxy IPs/ports are throttled or blocked by
   TSPU, which looks like a handshake timeout (`proxy failed rc=-9/-10` in the
   log) - the tool retries the next proxy, and with `fail_closed=1` it never
@@ -277,7 +271,7 @@ Known limits on POSIX:
   from the network.
 * **Apps that fetched `ConnectEx` before injection** can bypass the hook; set
   `hook_connectex=1` (default) and inject as early as possible
-  (`rot.py inject --launch` or `rot.py watch`).
+  (`rot inject --launch` or `rot watch`).
 * **Antivirus.** DLL injection is the same technique malware uses; Defender may
   quarantine the DLL. Add the folder to exclusions. Only inject into software
   you trust.
@@ -306,7 +300,7 @@ python tests\testsocks.py --port 11081 --fake-ip 10.9.9.10
 # live rotation demo: a poller that prints the IP every second
 python tests\poller.py checkip.amazonaws.com / 1 out.txt
 .\bin\inject.exe --pid <that pid>
-python rot.py use 1      # out.txt flips from 10.9.9.9 to 10.9.9.10 within ~1s
+rot use 1      # out.txt flips from 10.9.9.9 to 10.9.9.10 within ~1s
 ```
 
 ---
@@ -326,7 +320,7 @@ python rot.py use 1      # out.txt flips from 10.9.9.9 to 10.9.9.10 within ~1s
 * Upstream sockets are connected with the real `ConnectEx` captured before any
   patching.
 * Proxy pools rotate inside the process; the files are the only interface, so
-  `rot.py` (or Notepad) works the same.
+  `rot` (or Notepad) works the same.
 
 ## Rebuilding
 
@@ -360,7 +354,7 @@ Verify the POSIX shim without internet, then with a real proxy:
 
 ```sh
 sh tests/posix_selftest.sh     # fake SOCKS5 exit, expects exit_ip=10.9.9.9
-sh tests/posix_live.sh         # first credentialed proxy from proxies.txt
+sh tests/posix_live.sh         # first credentialed proxy from proxies.db
 ```
 
 No compiler installed? `pip install --target .tools ziglang` (it ships a

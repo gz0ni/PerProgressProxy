@@ -15,6 +15,20 @@ Non-trivial choices and why. Newest first.
 
 ---
 
+### Proxy list lives only in SQLite, read by the DLL (2026-11-05)
+
+- Decision: `proxies.db` (SQLite) is the only store of the list; `proxies.txt` is gone. The DLL and the POSIX shim embed SQLite (`src/sqlite/`, amalgamation 3.54.1) and read the table read-only.
+- Reason: requested ("txt is a disgrace"). MySQL/Postgres need a server and cannot be created on first run; SQLite is one file with no install.
+- Alternatives considered: keeping a generated `proxies.txt` for the C side (tried first, rejected by the user); a custom binary file (still a file, no gain); named pipe / IPC (new moving parts).
+- Consequences: reverses the old "no database" rule; C binaries grew to about 1.2 MB each; shim builds hide SQLite symbols (`SQLITE_API` hidden) so they never interpose the target's own libsqlite3; journal mode must stay DELETE so file mtime/size changes on every write; a busy database keeps the previous list and retries on the next 400 ms tick; deleting the DB loses the list (it is recreated empty); an existing `proxies.txt` is imported once and deleted.
+
+### Control panel ported from Python to Rust (2026-11-05)
+
+- Decision: `rust/` crate `rot` replaces `rot.py` + `ppp/`; behaviour and file contract unchanged.
+- Reason: single native binary, no interpreter probing in `run.cmd`, typed code.
+- Alternatives considered: keeping Python (needs a working interpreter); a Rust-only std build (hand-rolled JSON/HTTPS/Win32 FFI is more risk than clap/serde_json/ureq/windows-sys).
+- Consequences: Python panel deleted after acceptance; `run.cmd` / `run.sh` start the Rust binary; `tests/testsocks.py` and `tests/poller.py` stay as dev helpers. Known carry-overs from Python: TUI help/footer mention `j/k` but no handler exists; `proxies()` index counts invalid lines while `list` does not.
+
 ### Hotkey TUI replaces the command shell as the default console (2026-10-29)
 
 - Decision: `python rot.py` / `run.cmd` / `run.sh` open `ppp/tui` - a raw-key

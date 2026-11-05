@@ -2,10 +2,11 @@
 
 ## Code Style
 
-- Python: 3.8 compatible syntax at module level, `from __future__ import annotations`
-  where unions are used, standard library only, no third-party packages.
+- Rust: stable, edition 2024, `cargo fmt`-style, `Result` over panics, no new
+  dependencies without a reason (current: clap, serde, serde_json, ureq,
+  windows-sys, libc).
 - C: C11, two-space indent, function names `snake_case`, globals prefixed `g_`.
-- File names: lowercase, no spaces. Directories: `src/`, `ppp/`, `tests/`,
+- File names: lowercase, no spaces. Directories: `src/`, `rust/`, `tests/`,
   `proxy/`, `state/`, `logs/`.
 
 ## Languages
@@ -17,23 +18,25 @@
 
 ## Design
 
-- The file contract (`config.ini`, `proxies.txt`, `state/`, `logs/`) is the API.
-  Do not add IPC, services, or a database for what a file already solves.
-- The interactive console is a stdlib-only TUI: raw `msvcrt` / `termios` input
-  plus ANSI output, no curses/rich/textual. Rendering is a pure function over a
-  `ViewState` (`ppp/tui/view.py`) so it can be tested without a terminal.
-- Command handlers in `ppp/cli.py` stay the only place that mutates files; the
-  TUI calls them through `ppp/tui/model.py`.
+- Contract with the C side: `config.ini`, `proxies.db` (table `proxies(id,
+  text)`, read-only for C, journal mode DELETE), `state/`, `logs/`. Do not add
+  IPC, services, or a database server.
+- The interactive console is a hand-rolled TUI: raw console/termios input plus
+  ANSI output, no ratatui/crossterm. Rendering is a pure function over a
+  `ViewState` (`rust/src/tui/view.rs`) so it can be tested without a terminal.
+- File mutations go through `Store` and `processes`; the TUI reaches them via
+  `rust/src/tui/model.rs`.
 
 ## State and Persistence
 
 - Only the DLL writes `state/<pid>.txt` and `logs/<pid>.log`.
-- Only `ppp.store` writes `config.ini` and `proxies.txt`.
+- Only `Store` (`rust/src/store.rs`) writes `config.ini` and `proxies.db`.
 - `state/` and `logs/` are disposable: deleting them must never break settings.
 
 ## Testing
 
-- `unittest`, no pytest dependency. Tests live in `tests/test_*.py`.
+- `cargo test`; unit tests sit in `#[cfg(test)]` modules next to the code and use
+  temp folders, never the real `proxies.db`.
 - Anything that parses user input (proxy specs, import) needs a test with a real
   sample line from `proxy/`.
 - Windows-only behaviour is tested manually; document the manual step in the task.
@@ -42,7 +45,7 @@
 
 - `proxyinject.dll` and `inject.exe` are generated artifacts; rebuild from `src/`.
 - `.tools/` is a vendored Zig toolchain; do not edit or commit changes to it.
-- `proxy/*.txt` and `proxies.txt` contain credentials; never paste them into
+- `proxy/*.txt` and `proxies.db` contain credentials; never paste them into
   docs, commits, or chat.
 
 ## Git

@@ -3,15 +3,18 @@ set -u
 
 cd "$(dirname "$0")" || exit 1
 
-if [ -n "${PYTHON:-}" ]; then
-  PY="$PYTHON"
-elif command -v python3 >/dev/null 2>&1; then
-  PY=python3
-elif command -v python >/dev/null 2>&1; then
-  PY=python
-else
-  echo "[!] python3 not found in PATH. Install Python 3.8+ or set PYTHON." >&2
-  exit 127
-fi
+case "$(uname -s)-$(uname -m)" in
+  Linux-x86_64) PREBUILT=bin/rot ;;
+  Linux-aarch64|Linux-arm64) PREBUILT=bin/rot-aarch64 ;;
+  *) PREBUILT= ;;
+esac
 
-exec "$PY" rot.py "$@"
+for bin in $PREBUILT rust/target/release/rot; do
+  if [ -n "$bin" ] && [ -f "$bin" ]; then
+    [ -x "$bin" ] || chmod +x "$bin" 2>/dev/null
+    exec "$bin" "$@"
+  fi
+done
+
+echo "[!] no rot binary for $(uname -s)/$(uname -m). Build it once: cd rust && cargo build --release" >&2
+exit 127

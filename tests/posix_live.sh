@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-# POSIX shim self-test against the first credentialed proxy in proxies.txt.
+# POSIX shim self-test against the first credentialed proxy in proxies.db.
 # Prints only the exit IP; the credential itself is never echoed.
 set -eu
 
@@ -16,9 +16,11 @@ if [ -z "$SHIM" ]; then
   exit 1
 fi
 
-LINE=$(grep -v -E '^[[:space:]]*[#;]' proxies.txt | awk -F: 'NF>=4' | head -n 1 || true)
+ROT=$ROOT/bin/rot
+[ "$(uname -m)" = "x86_64" ] || ROT=$ROOT/bin/rot-aarch64
+LINE=$("$ROT" raw --credentialed || true)
 if [ -z "$LINE" ]; then
-  echo "no credentialed proxy in proxies.txt" >&2
+  echo "no credentialed proxy in the database" >&2
   exit 1
 fi
 

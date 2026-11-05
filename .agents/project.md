@@ -8,8 +8,7 @@ are plain files, re-read by the injected process within about a second, so the
 exit IP can be switched without restarting the target.
 
 Implementation: a C shim (`src/proxyinject.c`) plus a small C injector
-(`src/inject.c`), driven by a standard-library-only Python control panel
-(`rot.py` + `ppp/`).
+(`src/inject.c`), driven by a Rust control panel (`rust/`, binary `rot`).
 
 ## Platforms
 
@@ -21,7 +20,9 @@ Implementation: a C shim (`src/proxyinject.c`) plus a small C injector
 
 ## Toolchain
 
-- Python 3.8+, standard library only, no virtualenv needed.
+- Rust (stable, edition 2024) for the control panel; crates: clap, serde_json,
+  ureq, windows-sys / libc. Python is needed only for the dev helpers `tests/testsocks.py` and
+  `tests/poller.py`.
 - C11, built with the Zig toolchain bundled at `.tools/ziglang/zig.exe` (0.16.0).
 - Target triple for Windows builds: `x86_64-windows-gnu`.
 
@@ -33,19 +34,21 @@ Implementation: a C shim (`src/proxyinject.c`) plus a small C injector
 
 ## Dependencies
 
-- Runtime: none beyond Python and the prebuilt binaries in `bin/`.
+- Runtime: none beyond the built `rot` binary and the prebuilt binaries in `bin/`.
 - Proxy lists come from outside (`proxy/`), usually public or paid proxy dumps.
 
 ## Design Basis
 
-File-based contract only: `config.ini`, `proxies.txt`, `state/<pid>.txt`,
-`logs/<pid>.log`. Any editor can change the settings while processes run, and
-the console panel writes the same files. No IPC, no daemon, no database.
+The proxy list lives in an embedded SQLite file `proxies.db` (created on first
+run, recreated empty if deleted). The panel writes it; the injected DLL/shim
+open it read-only (SQLite is compiled into them, symbols hidden). Everything
+else is plain files: `config.ini`, `state/<pid>.txt`, `logs/<pid>.log`.
+No IPC, no daemon, no database server.
 
 ## Status
 
 - Working: injection, SOCKS4/5 + HTTP CONNECT, hostname pass-through for
-  fake-ip DNS, live reload, rotation, hotkey console (`ppp/tui`), legacy
+  fake-ip DNS, live reload, rotation, hotkey console (`rust/src/tui`), legacy
   command console, `proxy/` auto-import, `state/` folder, POSIX shim (verified
   in WSL against a fake SOCKS5 exit and a real HTTP proxy).
 - Not started: UDP proxying, attaching to existing POSIX processes, macOS field

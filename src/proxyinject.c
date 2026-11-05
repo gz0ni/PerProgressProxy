@@ -17,7 +17,7 @@
  *
  * Config (next to this DLL):
  *   config.ini    behaviour
- *   proxies.txt   one proxy per line
+ *   proxies.db    SQLite database, table proxies(id, text); opened read-only
  *   state.txt     runtime state, written by the DLL
  *   logs\PID.log  per-process event log
  */
@@ -28,6 +28,7 @@
 #include <windows.h>
 #include <ws2tcpip.h>
 #include <mswsock.h>
+#include "sqlite/sqlite3.h"
 #include <tlhelp32.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -556,14 +557,56 @@ static int ini_int(char *blob, const char *key, int dflt)
     return atoi(v);
 }
 
+static int g_px_load_failed = 0;
+
+/* Joins every row of proxies.db into one newline-separated string.
+ * Returns the length, -1 when the database is missing, -2 when it is busy. */
+static int read_proxy_db(char *buf, int cap)
+{
+    wchar_t wpath[MAX_PATH];
+    char path[MAX_PATH * 3];
+    _snwprintf(wpath, MAX_PATH - 1, L"%ls\\proxies.db", g_dirw);
+    wpath[MAX_PATH - 1] = 0;
+    if (!WideCharToMultiByte(CP_UTF8, 0, wpath, -1, path, sizeof(path), NULL, NULL))
+        return -1;
+
+    sqlite3 *db = NULL;
+    if (sqlite3_open_v2(path, &db, SQLITE_OPEN_READONLY, NULL) != SQLITE_OK) {
+        if (db) sqlite3_close(db);
+        return -1;
+    }
+    sqlite3_busy_timeout(db, 300);
+
+    sqlite3_stmt *st = NULL;
+    if (sqlite3_prepare_v2(db, "SELECT text FROM proxies ORDER BY id", -1, &st, NULL) != SQLITE_OK) {
+        int busy = sqlite3_errcode(db) == SQLITE_BUSY || sqlite3_errcode(db) == SQLITE_LOCKED;
+        sqlite3_close(db);
+        return busy ? -2 : -1;
+    }
+
+    int total = 0, rc;
+    while ((rc = sqlite3_step(st)) == SQLITE_ROW) {
+        const unsigned char *t = sqlite3_column_text(st, 0);
+        if (!t) continue;
+        int n = (int)strlen((const char *)t);
+        if (total + n + 2 >= cap) break;
+        memcpy(buf + total, t, (size_t)n);
+        total += n;
+        buf[total++] = '\n';
+    }
+    buf[total] = 0;
+    sqlite3_finalize(st);
+    sqlite3_close(db);
+    if (rc != SQLITE_ROW && rc != SQLITE_DONE) return -2;
+    return total;
+}
+
 static void load_proxies_locked(void)
 {
-    wchar_t path[MAX_PATH];
-    _snwprintf(path, MAX_PATH - 1, L"%ls\\proxies.txt", g_dirw);
-    path[MAX_PATH - 1] = 0;
-
     static char buf[768 * 1024];
-    int n = read_file_utf8(path, buf, sizeof(buf));
+    int n = read_proxy_db(buf, sizeof(buf));
+    if (n == -2) { g_px_load_failed = 1; return; }
+    g_px_load_failed = 0;
     if (n < 0) { g_npx = 0; return; }
 
     int count = 0;
@@ -639,7 +682,7 @@ static void maybe_reload(void)
     wchar_t cfg[MAX_PATH], pxf[MAX_PATH];
     _snwprintf(cfg, MAX_PATH - 1, L"%ls\\config.ini", g_dirw);
     cfg[MAX_PATH - 1] = 0;
-    _snwprintf(pxf, MAX_PATH - 1, L"%ls\\proxies.txt", g_dirw);
+    _snwprintf(pxf, MAX_PATH - 1, L"%ls\\proxies.db", g_dirw);
     pxf[MAX_PATH - 1] = 0;
 
     uint64_t sc = file_sig(cfg), sp = file_sig(pxf);
@@ -649,6 +692,7 @@ static void maybe_reload(void)
     g_sig_cfg = sc;
     g_sig_px = sp;
     load_config_locked(0);
+    if (g_px_load_failed) g_sig_px = 0;
     LeaveCriticalSection(&g_cs);
 }
 
@@ -1798,7 +1842,7 @@ static DWORD WINAPI worker(LPVOID param)
         wchar_t cfgp[MAX_PATH], pxp[MAX_PATH];
         _snwprintf(cfgp, MAX_PATH - 1, L"%ls\\config.ini", g_dirw);
         cfgp[MAX_PATH - 1] = 0;
-        _snwprintf(pxp, MAX_PATH - 1, L"%ls\\proxies.txt", g_dirw);
+        _snwprintf(pxp, MAX_PATH - 1, L"%ls\\proxies.db", g_dirw);
         pxp[MAX_PATH - 1] = 0;
         g_sig_cfg = file_sig(cfgp);
         g_sig_px = file_sig(pxp);

@@ -14,17 +14,12 @@ Traps already hit in this project. Check before repeating similar work.
 
 ---
 
-### Non-ASCII text in `.cmd` breaks the whole script (2026-10-29)
+### Backslashes get eaten by shell heredocs (2026-11-05)
 
-- What happened: after adding a `rem` line with an em dash to `run.cmd`,
-  launching it printed `'et' is not recognized` and `'not' is not recognized`,
-  skipped the Python line, and the window closed instantly.
-- Root cause: `chcp 65001` changes the code page in the middle of a batch file;
-  cmd keeps its read position in bytes and re-reads the remaining lines with the
-  new encoding, so multi-byte characters shift offsets and lines get chopped.
-- Avoid: keep launcher files ASCII-only (checked with
-  `python -c "print([b for b in open('run.cmd','rb').read() if b > 127])"`), and
-  put any Unicode text in the Python side instead.
+- What happened: Windows paths written through bash/Python snippets lost
+  their backslashes (`bin\rot.exe` became CR + `ot.exe`).
+- Root cause: escape processing in the shell/Python layers.
+- Avoid: write files with the Write/Edit tools; verify with `cat -A`.
 
 ---
 
