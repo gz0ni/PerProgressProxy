@@ -137,3 +137,8 @@ Traps already hit in this project. Check before repeating similar work.
   through to "expected host:port"; the C parser handled it correctly all along.
 - Avoid: keep `ppp/specs.py` and `parse_proxy_spec()` in `src/proxyinject.c` in
   sync, and test with a real line from `proxy/`.
+
+## posix_selftest.sh fails in WSL with CRLF
+
+With `core.autocrlf=true` the checkout has CRLF in `tests/*.sh`, so `sh` dies with
+`set: Illegal option -`. Run a `sed 's/\r$//'` copy of the script from WSL.

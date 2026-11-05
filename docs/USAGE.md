@@ -198,6 +198,7 @@ Hotkeys work in both English and Russian layouts (`v` = `м`, `a` = `ф`, …).
 | `/` | search |
 | `f` | filter: all / working / untested / failed / same |
 | `d` | delete the selected proxy |
+| `D` | delete by number: `1-9`, `4 7`, `20-` (to the end), `-5` (from the start); empty = everything shown. Works inside the current filter and search, asks first |
 | `c` | clean state of dead processes |
 | `?` | help |
 | `q` | quit |

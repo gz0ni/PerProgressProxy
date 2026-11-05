@@ -24,6 +24,7 @@ enum Action {
     Rotate,
     Filter,
     Delete,
+    DeleteShown,
     Clean,
     Help,
     Search,
@@ -42,12 +43,44 @@ fn hotkey_action(c: char) -> Option<Action> {
         'r' | 'к' => Action::Rotate,
         'f' | 'а' => Action::Filter,
         'd' | 'в' => Action::Delete,
+        'D' | 'В' => Action::DeleteShown,
         'c' | 'с' => Action::Clean,
         '?' => Action::Help,
         '/' => Action::Search,
         'q' | 'й' => Action::Quit,
         _ => return None,
     })
+}
+
+pub fn parse_ranges(text: &str) -> Result<Vec<(usize, usize)>, String> {
+    let mut out = Vec::new();
+    for token in text.split(|c: char| c == ',' || c == ';' || c.is_whitespace()) {
+        let token = token.replace("...", "").replace('…', "");
+        let token = token.trim();
+        if token.is_empty() {
+            continue;
+        }
+        let number = |part: &str| part.trim().parse::<usize>().map_err(|_| format!("bad range: {}", token));
+        let range = match token.split_once('-') {
+            None => {
+                let n = number(token)?;
+                (n, n)
+            }
+            Some((from, to)) => {
+                let from = if from.is_empty() { 0 } else { number(from)? };
+                let to = if to.is_empty() { usize::MAX } else { number(to)? };
+                if from == 0 && to == usize::MAX {
+                    return Err(format!("bad range: {}", token));
+                }
+                if from > to {
+                    return Err(format!("range goes backwards: {}", token));
+                }
+                (from, to)
+            }
+        };
+        out.push(range);
+    }
+    Ok(out)
 }
 
 fn split_at_char(text: &str, index: usize) -> (&str, &str) {
@@ -98,7 +131,7 @@ pub struct App<T: Term> {
     pub page: usize,
     paths: Paths,
     store: Store,
-    pending_delete: Option<usize>,
+    pending_delete: Vec<usize>,
     size: Option<(usize, usize)>,
 }
 
@@ -113,7 +146,7 @@ impl<T: Term> App<T> {
             modal: None,
             color: std::env::var_os("NO_COLOR").is_none(),
             page: 10,
-            pending_delete: None,
+            pending_delete: Vec::new(),
             size: None,
         }
     }
@@ -203,7 +236,7 @@ impl<T: Term> App<T> {
         if key == Key::CtrlC {
             if self.modal.is_some() {
                 self.modal = None;
-                self.pending_delete = None;
+                self.pending_delete.clear();
                 return true;
             }
             return false;
@@ -276,6 +309,14 @@ impl<T: Term> App<T> {
             }
             Action::Filter => self.screen.cycle_filter(),
             Action::Delete => self.ask_delete(),
+            Action::DeleteShown => {
+                self.modal = Some(Modal::Input(InputModal {
+                    kind: InputKind::Delete,
+                    title: "D: delete proxies by number".to_string(),
+                    value: String::new(),
+                    hint: "1-9   4 7   20- (to the end)   -5 (from the start)   empty = all shown".to_string(),
+                }))
+            }
             Action::Clean => {
                 let message = self.screen.clean();
                 self.say(message);
@@ -582,6 +623,15 @@ impl<T: Term> App<T> {
                 }
                 None
             }
+            InputKind::Delete => match parse_ranges(&value) {
+                Ok(ranges) => {
+                    self.ask_delete_shown(&ranges)
+                }
+                Err(e) => {
+                    modal.hint = e;
+                    Some(Modal::Input(modal))
+                }
+            },
             InputKind::Search => {
                 self.screen.set_query(&value);
                 let message = if value.is_empty() { "search cleared".to_string() } else { format!("search: \"{}\"", value) };
@@ -601,7 +651,32 @@ impl<T: Term> App<T> {
             title: "d: delete proxy".to_string(),
             body: vec![format!("#{}  {}", index, display), String::new(), "this removes the proxy from the database".to_string()],
         }));
-        self.pending_delete = Some(index);
+        self.pending_delete = vec![index];
+    }
+
+    fn ask_delete_shown(&mut self, ranges: &[(usize, usize)]) -> Option<Modal> {
+        let shown: Vec<(usize, String)> = self
+            .screen
+            .visible()
+            .iter()
+            .filter(|r| ranges.is_empty() || ranges.iter().any(|(from, to)| r.index >= *from && r.index <= *to))
+            .map(|r| (r.index, r.proxy.display()))
+            .collect();
+        if shown.is_empty() {
+            self.say("nothing to delete".to_string());
+            return None;
+        }
+        let mut body = vec![format!("{} proxies of {} (current filter and search)", shown.len(), self.screen.rows.len())];
+        for (index, display) in shown.iter().take(3) {
+            body.push(format!("#{}  {}", index, display));
+        }
+        if shown.len() > 3 {
+            body.push(format!("... and {} more", shown.len() - 3));
+        }
+        body.push(String::new());
+        body.push("this removes them from the database".to_string());
+        self.pending_delete = shown.into_iter().map(|(index, _)| index).collect();
+        Some(Modal::Confirm(ConfirmModal { title: "D: delete proxies".to_string(), body }))
     }
 
     fn confirm_key(&mut self, modal: ConfirmModal, key: Key) -> Option<Modal> {
@@ -610,13 +685,12 @@ impl<T: Term> App<T> {
         if !yes && !no {
             return Some(Modal::Confirm(modal));
         }
-        let pending = self.pending_delete.take();
-        if yes {
-            if let Some(index) = pending {
-                let removed = self.store.remove_indices(&[index as i64]);
-                self.screen.reload(true);
-                self.say(format!("removed {} proxy line(s)", removed));
-            }
+        let pending = std::mem::take(&mut self.pending_delete);
+        if yes && !pending.is_empty() {
+            let indices: Vec<i64> = pending.iter().map(|i| *i as i64).collect();
+            let removed = self.store.remove_indices(&indices);
+            self.screen.reload(true);
+            self.say(format!("removed {} proxy line(s)", removed));
         }
         None
     }
@@ -776,6 +850,46 @@ mod tests {
         let mut app = make_app("delete2", vec![ch('d'), ch('y'), ch('q')]);
         app.run();
         assert_eq!(app.store.proxies().len(), 2);
+    }
+
+    #[test]
+    fn delete_shown_follows_the_search() {
+        let mut app = make_app("delshown", vec![ch('D'), Key::Enter, Key::Esc, ch('q')]);
+        app.run();
+        assert_eq!(app.store.proxies().len(), 3);
+        let mut app = make_app("delshown2", vec![ch('/'), ch('1'), Key::Enter, ch('D'), Key::Enter, ch('y'), ch('q')]);
+        app.run();
+        assert_eq!(app.store.proxies().len(), 2);
+        let mut app = make_app("delshown3", vec![ch('D'), Key::Enter, ch('y'), ch('q')]);
+        app.run();
+        assert_eq!(app.store.proxies().len(), 0);
+    }
+
+    #[test]
+    fn delete_by_range() {
+        let mut app = make_app("delrange", vec![ch('D'), ch('1'), ch('-'), ch('2'), Key::Enter, ch('y'), ch('q')]);
+        app.run();
+        let left: Vec<String> = app.store.proxies().iter().map(|r| r.proxy.display()).collect();
+        assert_eq!(left.len(), 1);
+        assert!(left[0].contains("1.1.1.1"));
+        let mut app = make_app("delrange2", vec![ch('D'), ch('1'), ch('-'), ch('.'), ch('.'), ch('.'), Key::Enter, ch('y'), ch('q')]);
+        app.run();
+        assert_eq!(app.store.proxies().len(), 1);
+        let mut app = make_app("delrange3", vec![ch('D'), ch('x'), Key::Enter, ch('q')]);
+        app.run();
+        assert_eq!(app.store.proxies().len(), 3);
+    }
+
+    #[test]
+    fn range_parsing() {
+        assert_eq!(parse_ranges("1-9, 12"), Ok(vec![(1, 9), (12, 12)]));
+        assert_eq!(parse_ranges("20-"), Ok(vec![(20, usize::MAX)]));
+        assert_eq!(parse_ranges("3-..."), Ok(vec![(3, usize::MAX)]));
+        assert_eq!(parse_ranges("-5"), Ok(vec![(0, 5)]));
+        assert_eq!(parse_ranges(""), Ok(vec![]));
+        assert!(parse_ranges("9-1").is_err());
+        assert!(parse_ranges("a").is_err());
+        assert!(parse_ranges("-").is_err());
     }
 
     #[test]

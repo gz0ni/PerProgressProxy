@@ -4,25 +4,26 @@ Task checklist. Keep it honest: mark `[x]` only after verification.
 
 ## Open
 
-- [ ] Rebuild `bin/proxyinject.so` / `-aarch64.so` from the current
-      `src/proxyinject_posix.c` (needs zig) and rerun the WSL selftest.
-- [ ] Windows: `cargo build` after the `rot run` change (not compiled on the Mac).
-
-- [ ] Rust port: manual TUI pass on Windows Terminal; interactive TUI on Linux
+- [ ] macOS: `bin/rot-macos` is stale (no `D` range delete). On the Mac: `git pull`,
+      `cd rust && cargo test` (expect 99 tests), rebuild the universal binary as in
+      `.agents/commands.md` ("Build the panel"), then `./run.sh`, press `D`, enter
+      `1-3`, check the confirm modal, `Esc`; commit `bin/rot-macos`.
+- [ ] Rust port: interactive TUI on Linux
       (only `rot status` / `--version` were run, in WSL) and on macOS.
-- [ ] Manual TUI check on Windows Terminal: scroll a long proxy list, `v`
-      paste (lines and a list URL), background `t` test, window resize.
-- [ ] Manual attach-modal check: `a`, hold arrows, move the mouse, switch layout
-      with Alt+Shift - the modal must stay open; `/` filter, `Esc` closes once.
 - [ ] Optional latency history per proxy, kept in `state/`.
 
-## In Progress
-
-- [~] Windows console input rework (`ReadConsoleInputW`): code and unit tests
-      done (69 tests pass); only the manual attach-modal check above remains.
-
-
 ## Done
+
+- [x] Windows Terminal manual pass (user-verified): long list scroll, `v` paste,
+      background `t`, resize, attach modal (arrows, mouse, Alt+Shift, `/`, `Esc`).
+      Windows console input rework (`ReadConsoleInputW`) is complete.
+
+- [x] TUI: `D` asks for ranges (`1-9`, `4 7`, `20-`, `-5`; empty = all shown by the
+      current filter/search), then a confirm modal; help and USAGE updated; 98 tests pass. `bin/rot.exe` rebuilt; `D` and the `[D]range` hint verified by hand on Windows.
+
+- [x] Linux `.so` rebuilt (x86_64 + aarch64, zig from `.tools`) from the current
+      `src/proxyinject_posix.c`; WSL `tests/posix_selftest.sh` -> 10.9.9.9. Windows
+      `cargo test` (95 pass) and `cargo build --release` OK after the `rot run` change.
 
 - [x] macOS: opencode proxied. DNS-SD + `getaddrinfo_async_start` hooks, `rot run`
       (foreground exec), *_PROXY stripped. 96 tests; selftest 10.9.9.9;

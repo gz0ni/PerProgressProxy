@@ -230,6 +230,7 @@ pub enum InputKind {
     Rotate,
     Launch,
     Search,
+    Delete,
 }
 
 #[derive(Clone, Debug)]
@@ -450,7 +451,7 @@ fn footer(width: usize) -> Vec<Line> {
         width,
     );
     let second = hints(
-        &[("/", "search"), ("f", "filter"), ("d", "delete"), ("c", "clean"), ("?", "help"), ("q", "quit")],
+        &[("/", "search"), ("f", "filter"), ("d", "delete"), ("D", "range"), ("c", "clean"), ("?", "help"), ("q", "quit")],
         width,
     )
     .add("   j/k or arrows scroll", Style::Dim);
@@ -572,7 +573,7 @@ fn confirm_box(modal: &ConfirmModal, width: usize) -> Boxed {
     (out, None)
 }
 
-pub const HELP_LINES: [&str; 15] = [
+pub const HELP_LINES: [&str; 16] = [
     "j/k, arrows    move in the proxy list",
     "PgUp/PgDn      move a page, Home/End jump",
     "Enter          use the selected proxy",
@@ -583,6 +584,7 @@ pub const HELP_LINES: [&str; 15] = [
     "/              search by host, port or scheme",
     "f              cycle filter: all/working/untested/failed/same",
     "d              delete the selected proxy",
+    "D              delete by range: 1-9, 4 7, 20-, -5 (empty = all shown)",
     "v              paste proxy lines or an http(s) list URL",
     "a              attach to a running process (x = kill)",
     "l              launch a program already injected",

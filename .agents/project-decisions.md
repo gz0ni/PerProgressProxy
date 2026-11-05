@@ -133,3 +133,14 @@ Non-trivial choices and why. Newest first.
   relay proxy (needs an extra port and per-app configuration).
 - Consequences: hand-written DNS and `sendto()` datagrams bypass the shim; UDP is
   refused so QUIC falls back to TCP.
+
+### TUI bulk delete: ranges behind `D` (2026-11-05)
+
+- Decision: `d` removes the selected proxy; `D` asks for number ranges (`1-9`, `4 7`,
+  `20-`, `-5`, empty = all shown), then a confirm modal. Ranges are applied only
+  inside the current filter and search.
+- Reason: after `t` + filter `failed` the common need is to drop many rows at once;
+  per-row `d` was too slow, and marking rows one by one is slower than typing a range.
+- Alternatives considered: `Space` marks (more keystrokes), a dedicated "delete failed" key
+  (`rot test --prune` already does it).
+- Consequences: numbers are the proxy indices shown in the list, which shift after a delete.
