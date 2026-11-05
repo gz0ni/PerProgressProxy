@@ -5,14 +5,11 @@ Task checklist. Keep it honest: mark `[x]` only after verification.
 ## Open
 
 - [ ] Rust port: manual TUI pass on Windows Terminal; interactive TUI on Linux
-      (only `rot status` / `--version` were run, in WSL); macOS binary needs a
-      Mac (`cargo build --release` there).
+      (only `rot status` / `--version` were run, in WSL) and on macOS.
 - [ ] Manual TUI check on Windows Terminal: scroll a long proxy list, `v`
       paste (lines and a list URL), background `t` test, window resize.
 - [ ] Manual attach-modal check: `a`, hold arrows, move the mouse, switch layout
       with Alt+Shift - the modal must stay open; `/` filter, `Esc` closes once.
-- [ ] macOS field test: build the dylib, run `tests/posix_selftest.sh` on real
-      hardware, document signing / SIP limits.
 - [ ] Optional latency history per proxy, kept in `state/`.
 
 ## In Progress
@@ -22,6 +19,11 @@ Task checklist. Keep it honest: mark `[x]` only after verification.
 
 
 ## Done
+
+- [x] macOS port: `__interpose` hooks in the shim, universal `bin/proxyinject.dylib`
+      and `bin/rot-macos`, `run.sh` Darwin case, macOS-aware selftest. 95 tests
+      pass on macOS; `tests/posix_selftest.sh` -> 10.9.9.9; `rot set enabled 1` +
+      `rot launch` -> 10.9.9.9; x86_64 client under Rosetta -> 10.9.9.9.
 
 - [x] Settings in the `settings` table, `config.ini` removed; 95 tests; Windows selftest
       followed `rot set enabled 1/0` (10.9.9.9 vs direct IP); WSL check passed;

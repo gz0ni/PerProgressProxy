@@ -6,6 +6,7 @@ cd "$(dirname "$0")" || exit 1
 case "$(uname -s)-$(uname -m)" in
   Linux-x86_64) PREBUILT=bin/rot ;;
   Linux-aarch64|Linux-arm64) PREBUILT=bin/rot-aarch64 ;;
+  Darwin-*) PREBUILT=bin/rot-macos ;;
   *) PREBUILT= ;;
 esac
 

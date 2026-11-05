@@ -36,8 +36,8 @@ cd "C:\path\to\PerProcessProxy"
 .\run.cmd status
 ```
 
-Linux / macOS launcher exists too (`./run.sh`), but the shim is not built yet -
-see [Platform support](#platform-support).
+Linux / macOS launcher: `./run.sh` (prebuilt `bin/rot`, `bin/rot-aarch64`,
+universal `bin/rot-macos`); see [Platform support](#platform-support).
 
 Drop proxy lists into `proxy/` and they are merged into the database
 automatically on every start:
@@ -227,7 +227,7 @@ routing, DNS or adapters.
 |---|---|---|---|
 | Windows x64 | `proxyinject.dll` injected by `inject.exe` | yes (`--pid`, `--name`) | ready |
 | Linux x64 / arm64 | `proxyinject.so` via `LD_PRELOAD` | no (launch only) | ready |
-| macOS arm64 / x64 | `proxyinject.dylib` via `DYLD_INSERT_LIBRARIES` | no (launch only) | built, needs testing |
+| macOS arm64 / x64 | `proxyinject.dylib` via `DYLD_INSERT_LIBRARIES` | no (launch only) | ready (arm64 and x64 under Rosetta) |
 
 The POSIX shim uses the same `proxies.db`, `state/` and `logs/`,
 so the console and the proxy list are shared. Start a target with:
@@ -253,9 +253,15 @@ Known limits on POSIX:
   reports the proxy address.
 - Attaching to an already running process needs `ptrace` and is not implemented.
 - macOS: binaries signed with hardened runtime, notarised apps, and system
-  binaries protected by SIP ignore `DYLD_INSERT_LIBRARIES`. Sign the dylib or
-  disable library validation for the target; Apple Silicon requires an ad-hoc
-  signature at minimum.
+  binaries protected by SIP (`/usr/bin/curl`, `/usr/bin/python3`, `/usr/bin/arch`)
+  ignore `DYLD_INSERT_LIBRARIES`. Use Homebrew or self-built tools as targets
+  (`brew install curl` puts one in `/opt/homebrew/opt/curl/bin`). The dylib is
+  ad-hoc signed; Apple Silicon requires that at minimum.
+- macOS: hooks are installed through the `__DATA,__interpose` section, so only
+  `connect()` / `getaddrinfo()` callers are covered; Network.framework and
+  `NSURLSession` traffic does not go through them.
+- macOS: an app that honours the system proxy (for example `127.0.0.1:7890` from
+  Clash) connects to loopback, which the shim passes through untouched.
 - Applications started before the shim are not affected; that is the point.
 
 ---
@@ -348,9 +354,15 @@ POSIX shim (same source builds for every target, pick what you need):
 .tools\ziglang\zig.exe cc -target aarch64-linux-gnu -O2 -shared -fPIC `
   -o bin\proxyinject-aarch64.so src\proxyinject_posix.c -ldl
 
-# macOS arm64
-.tools\ziglang\zig.exe cc -target aarch64-macos -O2 -dynamiclib `
-  -o bin\proxyinject.dylib src\proxyinject_posix.c
+```
+
+macOS (universal arm64 + x86_64, on a Mac with the Xcode command line tools;
+see `.agents/commands.md` for the SQLite flags):
+
+```sh
+cc -arch arm64 -arch x86_64 -mmacosx-version-min=11.0 -O2 -dynamiclib "$HID" $SQ \
+  -o bin/proxyinject.dylib src/proxyinject_posix.c src/sqlite/sqlite3.c
+codesign -s - -f bin/proxyinject.dylib
 ```
 
 Verify the POSIX shim without internet, then with a real proxy:

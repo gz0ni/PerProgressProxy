@@ -47,6 +47,9 @@
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
+#ifdef __APPLE__
+#include <libproc.h>
+#endif
 
 #ifndef RTLD_NEXT
 #define RTLD_NEXT ((void *)-1L)
@@ -438,6 +441,14 @@ static void exe_name(char *out, size_t cap)
     return;
   }
 #endif
+#ifdef __APPLE__
+  char path[PROC_PIDPATHINFO_MAXSIZE];
+  if (proc_pidpath(getpid(), path, sizeof(path)) > 0) {
+    char *slash = strrchr(path, '/');
+    snprintf(out, cap, "%s", slash ? slash + 1 : path);
+    return;
+  }
+#endif
   snprintf(out, cap, "-");
 }
 
@@ -812,7 +823,15 @@ static int proxy_attempt(const Proxy *p, const char *host, int port,
   return fd;
 }
 
-int connect(int fd, const struct sockaddr *addr, socklen_t addrlen)
+#ifdef __APPLE__
+#define HOOK_CONNECT ppp_connect
+#define HOOK_GETADDRINFO ppp_getaddrinfo
+#else
+#define HOOK_CONNECT connect
+#define HOOK_GETADDRINFO getaddrinfo
+#endif
+
+int HOOK_CONNECT(int fd, const struct sockaddr *addr, socklen_t addrlen)
 {
   if (!real_connect) return -1;
 
@@ -922,8 +941,8 @@ int connect(int fd, const struct sockaddr *addr, socklen_t addrlen)
   return real_connect(fd, addr, addrlen);
 }
 
-int getaddrinfo(const char *node, const char *service, const struct addrinfo *hints,
-                struct addrinfo **res)
+int HOOK_GETADDRINFO(const char *node, const char *service, const struct addrinfo *hints,
+                     struct addrinfo **res)
 {
   if (!real_getaddrinfo) return EAI_FAIL;
   int rc = real_getaddrinfo(node, service, hints, res);
@@ -938,6 +957,18 @@ int getaddrinfo(const char *node, const char *service, const struct addrinfo *hi
   }
   return rc;
 }
+
+#ifdef __APPLE__
+typedef struct {
+  const void *replacement;
+  const void *original;
+} Interpose;
+
+__attribute__((used, section("__DATA,__interpose"))) static const Interpose g_interpose[] = {
+  {(const void *)ppp_connect, (const void *)connect},
+  {(const void *)ppp_getaddrinfo, (const void *)getaddrinfo},
+};
+#endif
 
 /* --------------------------------------------------------------- bootstrap - */
 
@@ -985,10 +1016,16 @@ __attribute__((constructor)) static void bootstrap(void)
   g_initialized = 1;
   g_pid = getpid();
 
+#ifdef __APPLE__
+  real_connect = connect;
+  real_getaddrinfo = getaddrinfo;
+  real_close = close;
+#else
   real_connect = (int (*)(int, const struct sockaddr *, socklen_t))dlsym(RTLD_NEXT, "connect");
   real_getaddrinfo = (int (*)(const char *, const char *, const struct addrinfo *,
                               struct addrinfo **))dlsym(RTLD_NEXT, "getaddrinfo");
   real_close = (int (*)(int))dlsym(RTLD_NEXT, "close");
+#endif
   if (!real_connect || !real_getaddrinfo) return;
   if (!real_close) real_close = close;
 

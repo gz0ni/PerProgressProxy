@@ -90,14 +90,17 @@
 
 ### POSIX shim (`src/proxyinject_posix.c`)
 
-- Hooks `connect()` and `getaddrinfo()` with `dlsym(RTLD_NEXT, ...)`; no inline
-  patching, so it works on any architecture the loader supports.
+- Hooks `connect()` and `getaddrinfo()`: Linux overrides the symbols and finds the
+  originals with `dlsym(RTLD_NEXT, ...)`; macOS defines `ppp_connect` /
+  `ppp_getaddrinfo` and registers them in `__DATA,__interpose` (two-level
+  namespaces ignore plain overrides). No inline patching.
 - Resolves the repository folder from `PROXYINJECT_DIR` or its own `dladdr` path,
   then reads the same `proxies.db`.
 - Turns the app's socket into the socket to the proxy with `dup2`, so the app's
   `getpeername()` reports the proxy.
 - Same file layouts: `state/<pid>.txt`, `logs/<pid>.log`.
-- Built with zig for `x86_64-linux-gnu`, `aarch64-linux-gnu`, `aarch64-macos`.
+- Built with zig for `x86_64-linux-gnu`, `aarch64-linux-gnu`; with Apple clang as a
+  universal arm64 + x86_64 dylib for macOS.
 
 ### Injector (`src/inject.c`)
 
@@ -118,9 +121,9 @@ state/<pid>.txt <------- DLL ------------------+--> processes --> UI
 - 32-bit Windows targets need a separately built `inject32.exe`.
 - UDP is blocked rather than proxied; on POSIX only `connect()` is hooked, so
   `sendto()` datagrams bypass the shim.
-- macOS build is not verified on hardware.
+- macOS: SIP-protected and hardened-runtime binaries drop `DYLD_INSERT_LIBRARIES`;
+  Network.framework / `NSURLSession` bypass `connect()`.
 
 ## Roadmap
 
-1. macOS verification and signing notes.
-2. Optional latency history per proxy in `state/`.
+1. Optional latency history per proxy in `state/`.

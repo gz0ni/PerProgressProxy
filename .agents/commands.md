@@ -5,8 +5,19 @@ All commands run from the repository root.
 ## Build the panel
 
 Prebuilt binaries are committed in `bin/`: `rot.exe` (Windows), `rot` (Linux
-x86_64), `rot-aarch64` (Linux arm64). Rust is needed only to rebuild them or on
-macOS (no prebuilt: the Apple SDK is required to link).
+x86_64), `rot-aarch64` (Linux arm64), `rot-macos` (universal arm64 + x86_64).
+Rust is needed only to rebuild them. `rot-macos` is built on a Mac (the Apple
+SDK is required to link):
+
+```sh
+rustup target add x86_64-apple-darwin
+cd rust
+for t in aarch64-apple-darwin x86_64-apple-darwin; do
+  MACOSX_DEPLOYMENT_TARGET=11.0 cargo build --release --target $t
+done
+lipo -create -output ../bin/rot-macos target/aarch64-apple-darwin/release/rot \
+  target/x86_64-apple-darwin/release/rot
+```
 
 ```powershell
 cd rust; cargo build --release     # rust\target\release\rot.exe
@@ -29,7 +40,7 @@ overwrote `bin/rot.exe` once.
 .\run.cmd import proxy\webshare.txt
 ```
 
-`run.sh` picks `bin/rot` or `bin/rot-aarch64` by `uname`, else `rust/target/release/rot`.
+`run.sh` picks `bin/rot`, `bin/rot-aarch64` or `bin/rot-macos` by `uname`, else `rust/target/release/rot`.
 `run.cmd` starts `bin\rot.exe`, else `rust\target\release\rot.exe`, and logs every
 launch to `logs\launcher.log`; panics land in `logs\ui-crash.log`.
 `rot --help` lists every subcommand. `PPP_ROOT` overrides the data folder
@@ -37,7 +48,7 @@ launch to `logs\launcher.log`; panics land in `logs\ui-crash.log`.
 `rot config` / `rot set <key> <value>` show and change the settings.
 
 ```sh
-./run.sh                  # Linux/macOS launcher (POSIX backend not ready yet)
+./run.sh                  # Linux/macOS launcher
 ```
 
 ## Verification
@@ -57,6 +68,10 @@ sh tests/posix_selftest.sh     # fake SOCKS5 exit, expects exit_ip=10.9.9.9
 sh tests/posix_live.sh         # first credentialed proxy, prints only the exit IP
 rot launch "sleep 5" && rot status
 ```
+
+On macOS the selftest uses Homebrew `python3` as the client (SIP strips
+`DYLD_*` from `/usr/bin/*`), override with `PPP_PYTHON=...`. x86_64 check under
+Rosetta: pass the env through `arch -x86_64 -e DYLD_INSERT_LIBRARIES=... app`.
 
 End-to-end without internet, using the fake SOCKS exits (needs Python for the
 dev helper only):
@@ -100,8 +115,10 @@ zig cc -target x86_64-linux-gnu.2.17 -O2 -s -shared -fPIC "$HID" $SQ \
   -o bin/proxyinject.so src/proxyinject_posix.c src/sqlite/sqlite3.c -ldl
 zig cc -target aarch64-linux-gnu.2.17 -O2 -s -shared -fPIC "$HID" $SQ \
   -o bin/proxyinject-aarch64.so src/proxyinject_posix.c src/sqlite/sqlite3.c -ldl
-zig cc -target aarch64-macos -O2 -dynamiclib "$HID" $SQ \
+# macOS, natively on a Mac (universal, ad-hoc signed):
+cc -arch arm64 -arch x86_64 -mmacosx-version-min=11.0 -O2 -dynamiclib "$HID" $SQ \
   -o bin/proxyinject.dylib src/proxyinject_posix.c src/sqlite/sqlite3.c
+codesign -s - -f bin/proxyinject.dylib
 ```
 
 Rebuild the shim after touching `src/`. Run bash snippets from a file: inline

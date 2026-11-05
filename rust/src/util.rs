@@ -75,6 +75,6 @@ pub fn install_interrupt_handler() {
         }
     }
     unsafe {
-        libc::signal(libc::SIGINT, handler as usize);
+        libc::signal(libc::SIGINT, handler as extern "C" fn(libc::c_int) as libc::sighandler_t);
     }
 }

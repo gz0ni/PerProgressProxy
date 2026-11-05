@@ -15,6 +15,19 @@ Non-trivial choices and why. Newest first.
 
 ---
 
+### macOS binaries built natively, universal (2026-11-05)
+
+- Decision: `bin/proxyinject.dylib` and `bin/rot-macos` are built on a Mac with
+  Apple clang / cargo as arm64 + x86_64 fat binaries, minimum macOS 11, ad-hoc signed.
+- Reason: the Rust panel needs the Apple SDK to link; one fat file covers Intel
+  Macs and Rosetta targets (an x86_64 app needs an x86_64 slice in the dylib).
+- Alternatives considered: zig `aarch64-macos` only (no x86_64 slice, no signature
+  step, and the panel still needed a Mac); separate per-arch files (more cases in
+  `run.sh` and `backend.rs`).
+- Consequences: the dylib grew to about 2.4 MB, `rot-macos` to about 9 MB; rebuild
+  both on a Mac after touching `src/proxyinject_posix.c` or `rust/`.
+
+
 ### Settings moved from config.ini into the database (2026-11-05)
 
 - Decision: table `settings(key, value)` in `proxies.db` replaces `config.ini`; `rot config` / `rot set` edit it. The DLL and shim render the table to `key=value` lines and reuse their old parsers.

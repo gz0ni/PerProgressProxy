@@ -15,6 +15,16 @@ Known bugs and their fixes. Newest first. Status: `open` / `fixed` / `won't fix`
 
 ---
 
+### macOS shim never hooked `connect()` (2026-11-05) - fixed
+
+- Symptom: targets launched with `proxyinject.dylib` kept their direct IP.
+- Root cause: the shim relied on symbol overriding plus `dlsym(RTLD_NEXT)`,
+  which only works with flat namespaces (Linux); dyld ignores it.
+- Fix: on `__APPLE__` the hooks are `ppp_connect` / `ppp_getaddrinfo`, registered
+  in `__DATA,__interpose`; the originals are called directly.
+- Prevent: run `tests/posix_selftest.sh` on a Mac after touching the shim.
+
+
 ### Import silently dropped proxy passwords (2026-10-28) - fixed
 
 - Symptom: importing `host:port:user:pass` wrote `socks5://user@host:port` into

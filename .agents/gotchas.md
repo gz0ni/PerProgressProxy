@@ -14,6 +14,29 @@ Traps already hit in this project. Check before repeating similar work.
 
 ---
 
+### macOS: shim loads but nothing is proxied (2026-11-05)
+
+- What happened: with `DYLD_INSERT_LIBRARIES` the dylib logged INIT, yet every
+  connection went direct.
+- Root causes, three separate ones:
+  1. Two-level namespaces ignore exported `connect` overrides; hooks need
+     `__DATA,__interpose`.
+  2. SIP strips `DYLD_*` from `/usr/bin/*` (curl, python3, and `arch` itself,
+     so `arch -x86_64 env ...` loses them too).
+  3. Apps that honour the system proxy (here Clash on `127.0.0.1:7890`, seen via
+     `scutil --proxy`) connect to loopback, which the shim deliberately skips;
+     Python `urllib` does this.
+- Avoid: test with a Homebrew or self-built client, `ProxyHandler({})` in Python,
+  `arch -x86_64 -e VAR=...` under Rosetta; check `scutil --proxy` first.
+
+### macOS `/usr/bin/python3` cannot run `tests/testsocks.py` (2026-11-05)
+
+- What happened: `SyntaxError: f-string expression part cannot include a backslash`.
+- Root cause: the system python is 3.9; the helper needs 3.12+.
+- Avoid: use Homebrew `python3` (the selftest picks it on Darwin).
+
+---
+
 ### Backslashes get eaten by shell heredocs (2026-11-05)
 
 - What happened: Windows paths written through bash/Python snippets lost
