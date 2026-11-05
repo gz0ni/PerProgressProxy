@@ -4,15 +4,15 @@ Task checklist. Keep it honest: mark `[x]` only after verification.
 
 ## Open
 
-- [ ] macOS: `bin/rot-macos` is stale (no `D` range delete). On the Mac: `git pull`,
-      `cd rust && cargo test` (expect 99 tests), rebuild the universal binary as in
-      `.agents/commands.md` ("Build the panel"), then `./run.sh`, press `D`, enter
-      `1-3`, check the confirm modal, `Esc`; commit `bin/rot-macos`.
 - [ ] Rust port: interactive TUI on Linux
-      (only `rot status` / `--version` were run, in WSL) and on macOS.
+      (only `rot status` / `--version` were run, in WSL).
 - [ ] Optional latency history per proxy, kept in `state/`.
 
 ## Done
+
+- [x] macOS: `bin/rot-macos` rebuilt (universal) with `D` range delete; 99 tests pass.
+      TUI driven through a pty on an isolated `PPP_ROOT`: `D` (and `В`) opens the
+      prompt, `1-3` -> confirm "3 proxies of 6", `Esc` keeps all, `y` removes #1-#3.
 
 - [x] Windows Terminal manual pass (user-verified): long list scroll, `v` paste,
       background `t`, resize, attach modal (arrows, mouse, Alt+Shift, `/`, `Esc`).
